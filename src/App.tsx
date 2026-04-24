@@ -63,7 +63,7 @@ type Tab = "analysis" | "stats" | "history";
 
 interface AlertNotification {
   id: string;
-  type: "vacuum" | "terminal" | "omega" | "sequence";
+  type: "vacuum" | "terminal" | "omega" | "sequence" | "zone";
   message: string;
 }
 
@@ -255,49 +255,8 @@ export default function App() {
     if (ballistics.active) {
       all.push(...ballistics.targets);
     }
-
-    // Ensure omega target is always lit
-    if (stats.omegaAlert && stats.omegaTarget !== null) {
-      all.push(stats.omegaTarget);
-    }
-
-    // Ensure sequence recognition target is also lit
-    if (stats.sequenceAlert && stats.sequenceTarget !== null) {
-      all.push(stats.sequenceTarget);
-      // Also add 1 neighbor on each side for the sequence target to increase hit rate
-      const seqIdx = ROULETTE_NUMBERS.indexOf(stats.sequenceTarget);
-      all.push(ROULETTE_NUMBERS[(seqIdx + 1) % 37]);
-      all.push(ROULETTE_NUMBERS[(seqIdx - 1 + 37) % 37]);
-    }
-
-    // Ensure quebra target is also lit (it will have a special highlight too)
-    if (stats.quebraAlert && stats.quebraTarget !== null) {
-      all.push(stats.quebraTarget);
-      // Add neighbors for coverage
-      const qIdx = ROULETTE_NUMBERS.indexOf(stats.quebraTarget);
-      all.push(ROULETTE_NUMBERS[(qIdx + 1) % 37]);
-      all.push(ROULETTE_NUMBERS[(qIdx - 1 + 37) % 37]);
-    }
-
-    let uniqueTargets = Array.from(new Set(all));
-
-    // Auto-complete isolated numbers: add 1 neighbor on EACH side to assure coverage
-    const expanded = new Set(uniqueTargets);
-    const originalSet = new Set(uniqueTargets);
-    uniqueTargets.forEach((num) => {
-      const idx = ROULETTE_NUMBERS.indexOf(num);
-      const rightNeighbor = ROULETTE_NUMBERS[(idx + 1) % 37];
-      const leftNeighbor = ROULETTE_NUMBERS[(idx - 1 + 37) % 37];
-
-      if (!originalSet.has(rightNeighbor) && !originalSet.has(leftNeighbor)) {
-        // If it's completely alone, add both left and right neighbors
-        expanded.add(rightNeighbor);
-        expanded.add(leftNeighbor);
-      }
-    });
-
-    return Array.from(expanded);
-  }, [targets, ballistics, stats]);
+    return Array.from(new Set(all));
+  }, [targets, ballistics]);
 
   const addNumber = React.useCallback((num: number) => {
     setHistory((prev) => [num, ...prev].slice(0, 200));
@@ -374,7 +333,7 @@ export default function App() {
           <button
             onClick={() => setIsMuted((prev) => !prev)}
             className={cn(
-              "w-10 h-10 glass-panel flex items-center justify-center border-gold/30 transition-all duration-300 cursor-pointer group shadow-lg",
+              "w-10 h-10 rounded-full glass-panel flex items-center justify-center border-gold/30 transition-all duration-300 cursor-pointer group shadow-lg",
               isMuted
                 ? "bg-red-500/10 border-red-500/30 shadow-red-500/5 rotate-12"
                 : "hover:bg-gold/10 hover:shadow-gold/10",

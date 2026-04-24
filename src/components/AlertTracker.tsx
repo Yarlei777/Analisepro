@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Zap, Target } from 'lucide-react';
+import { TrendingUp, Zap, Target, AlertCircle } from 'lucide-react';
 
 interface AlertTrackerProps {
   stats: {
@@ -15,6 +15,9 @@ interface AlertTrackerProps {
     quebraAlert: boolean;
     quebraTarget: number | null;
     quebraReason: string;
+    crazyTable?: boolean;
+    entropyLevel?: number;
+    winRate?: number;
   };
 }
 
@@ -22,7 +25,25 @@ export const AlertTracker: React.FC<AlertTrackerProps> = ({ stats }) => {
   return (
     <div className="w-full max-w-2xl space-y-4">
       <AnimatePresence mode="popLayout">
-        {stats.biasDetected && (
+        {stats.crazyTable && (
+          <motion.div 
+            key="alert-crazy-table"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="text-[10px] font-black text-red-500 bg-red-500/10 py-3 rounded-xl border border-red-500/20 flex flex-col items-center justify-center space-y-1 text-center px-4"
+          >
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 animate-pulse" />
+              <span className="tracking-[0.2em]">ALERTA: MESA MALUCA / NÃO ESTÁ PAGANDO</span>
+            </div>
+            <span className="text-[8px] font-mono opacity-80 tracking-widest">
+              ENTROPIA: {stats.entropyLevel}% | ASSERTIVIDADE: {stats.winRate}%
+            </span>
+          </motion.div>
+        )}
+
+        {stats.biasDetected && !stats.crazyTable && (
           <motion.div 
             key="alert-bias"
             initial={{ height: 0, opacity: 0 }}

@@ -1,7 +1,10 @@
 import { NumberScore } from "./analyzer_types";
 import { ROULETTE_NUMBERS, getNumberColor } from "./constants";
 
-export function analyzeHistory(history: number[]) {
+export function analyzeHistory(
+  history: number[],
+  isRecursive: boolean = false,
+) {
   const stats = {
     activeSector: "N/A",
     predictedSector: "N/A",
@@ -29,6 +32,11 @@ export function analyzeHistory(history: number[]) {
     sectorConfidence: 0.0,
     zoneBiasAlert: false,
     zoneBiasTarget: "",
+    crazyTable: false,
+    entropyLevel: 0,
+    winRate: 0,
+    winsCount: 0,
+    lossesCount: 0,
   };
 
   let confidence = 0;
@@ -622,6 +630,137 @@ export function analyzeHistory(history: number[]) {
     if (!stats.quebraAlert && !stats.omegaAlert) {
       biasMessage = `VIÉS DE ZONA: TENDÊNCIA MASSIVA EM ${stats.zoneBiasTarget.toUpperCase()}`;
       playSignal = "yellow";
+    }
+  }
+
+  // --- 8. Expansão de Alvos ---
+  // Expandir alvos com os vizinhos e os padrões encontrados (Omega, Sequence, Quebra)
+  let allTargets = [...targets];
+  if (stats.omegaAlert && stats.omegaTarget !== null) {
+    allTargets.push(stats.omegaTarget);
+  }
+  if (stats.sequenceAlert && stats.sequenceTarget !== null) {
+    allTargets.push(stats.sequenceTarget);
+    const seqIdx = ROULETTE_NUMBERS.indexOf(stats.sequenceTarget);
+    allTargets.push(ROULETTE_NUMBERS[(seqIdx + 1) % 37]);
+    allTargets.push(ROULETTE_NUMBERS[(seqIdx - 1 + 37) % 37]);
+  }
+  if (stats.quebraAlert && stats.quebraTarget !== null) {
+    allTargets.push(stats.quebraTarget);
+    const qIdx = ROULETTE_NUMBERS.indexOf(stats.quebraTarget);
+    allTargets.push(ROULETTE_NUMBERS[(qIdx + 1) % 37]);
+    allTargets.push(ROULETTE_NUMBERS[(qIdx - 1 + 37) % 37]);
+  }
+
+  let uniqueTargets = Array.from(new Set(allTargets));
+  const expanded = new Set(uniqueTargets);
+  const originalSet = new Set(uniqueTargets);
+  uniqueTargets.forEach((num) => {
+    const idx = ROULETTE_NUMBERS.indexOf(num);
+    const rightNeighbor = ROULETTE_NUMBERS[(idx + 1) % 37];
+    const leftNeighbor = ROULETTE_NUMBERS[(idx - 1 + 37) % 37];
+
+    if (!originalSet.has(rightNeighbor) && !originalSet.has(leftNeighbor)) {
+      expanded.add(rightNeighbor);
+      expanded.add(leftNeighbor);
+    }
+  });
+
+  targets = Array.from(expanded);
+
+  // --- Cálculo de Win/Loss e Entropia Global ---
+  if (!isRecursive && history.length >= 15) {
+    let winsCount = 0;
+    let lossesCount = 0;
+
+    // Evaluate last 10 rounds for win/loss
+    const maxLookback = Math.min(10, history.length - 1);
+    for (let i = 0; i < maxLookback; i++) {
+      const resultNumber = history[i];
+      const prevHistory = history.slice(i + 1);
+      if (prevHistory.length > 5) {
+        const pastAnalysis = analyzeHistory(prevHistory, true);
+        const hit = pastAnalysis.targets.includes(resultNumber) || pastAnalysis.stats.omegaTarget === resultNumber || pastAnalysis.stats.quebraTarget === resultNumber;
+        if (hit) winsCount++;
+        else lossesCount++;
+      }
+    }
+
+    const winRate = winsCount / (winsCount + lossesCount) || 0;
+    stats.winRate = Math.round(winRate * 100);
+    stats.winsCount = winsCount;
+    stats.lossesCount = lossesCount;
+
+    // Calculate simple entropy based on distance spread
+    let distanceChanges = 0;
+    for (let i = 0; i < maxLookback - 1; i++) {
+      const n1 = history[i];
+      const n2 = history[i + 1];
+      const n3 = history[i + 2];
+      if (n1 !== undefined && n2 !== undefined && n3 !== undefined) {
+        const dist1 = getDist(n2, n1);
+        const dist2 = getDist(n3, n2);
+        if (Math.abs(dist1 - dist2) > 10) {
+          distanceChanges++;
+        }
+      }
+    }
+    const baseEntropy = Math.round((distanceChanges / maxLookback) * 100);
+    const entropyLevel = Math.min(100, baseEntropy + (lossesCount * 5));
+    stats.entropyLevel = entropyLevel;
+
+    if (entropyLevel >= 70 && stats.winRate <= 30) {
+      stats.crazyTable = true;
+    }
+
+    // --- Sinergia com Mesa Maluca ---
+    if (stats.crazyTable) {
+      // Se há um sinal extremo balístico num cenário caótico
+      if (stats.omegaAlert || stats.quebraAlert) {
+         playSignal = "green";
+         confidence = Math.max(confidence, 99);
+         biasMessage = "ANOMALIA BALÍSTICA NA MESA MALUCA (ALTA CONFIANÇA)";
+      } else {
+         playSignal = "red";
+         confidence = 0;
+         biasMessage = "MESA MALUCA / ALTA ENTROPIA: NÃO JOGUE (BAIXA ASSERTIVIDADE)";
+         targets = []; // Evitar entradas aleatórias
+      }
+    }
+  }
+
+  // --- Lógica de Continuidade / "A Volta Sempre Paga" ---
+  // Se não estamos em uma análise recursiva e já temos dados suficientes
+  if (!isRecursive && history.length > 15) {
+    const prevAnalysis = analyzeHistory(history.slice(1), true);
+    // Se a rodada anterior deu sinal verde (ou amarelo)
+    if (
+      prevAnalysis.playSignal === "green" ||
+      prevAnalysis.playSignal === "yellow"
+    ) {
+      const lastHit = prevAnalysis.targets.includes(history[0]);
+
+      if (lastHit) {
+        // Se bater na próxima rodada fica amarelo pq ja bateu uma vez
+        playSignal = "yellow";
+        confidence = Math.min(confidence, 75); // Confidence shouldn't be 95 anymore
+        if (!stats.crazyTable) {
+            biasMessage = "GREEN ANTERIOR: SINAL AMARELO (JÁ BATEU UMA VEZ)";
+        }
+      } else {
+        // Se não bater na próxima rodada fica verde pq a volta e certa
+        playSignal = "green";
+        confidence = Math.max(confidence, 95);
+        if (!stats.crazyTable) {
+            biasMessage = "RED DA ANTERIOR: SINAL VERDE (A VOLTA SEMPRE PAGA)";
+        }
+      }
+
+      // Mantém os alvos da análise anterior se não houver novos ou se os novos foram apagados pela mesa maluca,
+      // desde que a gente ainda queira mostrar targets (se a mesa maluca não bloqueou o green/yellow)
+      if (targets.length === 0 && prevAnalysis.targets.length > 0) {
+        targets = [...prevAnalysis.targets];
+      }
     }
   }
 
