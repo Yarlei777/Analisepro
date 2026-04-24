@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Crown, History, Repeat } from 'lucide-react';
+import { AlertTriangle, Crown, History, Repeat, PieChart } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface AlertNotification {
   id: string;
-  type: 'vacuum' | 'terminal' | 'omega' | 'sequence';
+  type: 'vacuum' | 'terminal' | 'omega' | 'sequence' | 'zone';
   message: string;
 }
 
@@ -28,6 +28,7 @@ export const NotificationSystem = React.memo(({ notifications }: NotificationSys
               notif.type === 'vacuum' ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : 
               notif.type === 'omega' ? "bg-gold/10 border-gold/30 text-gold" :
               notif.type === 'sequence' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" :
+              notif.type === 'zone' ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
               "bg-purple-500/10 border-purple-500/30 text-purple-400"
             )}
           >
@@ -36,11 +37,13 @@ export const NotificationSystem = React.memo(({ notifications }: NotificationSys
               notif.type === 'vacuum' ? "bg-amber-500/20 border-amber-500/40" : 
               notif.type === 'omega' ? "bg-gold/20 border-gold/40" :
               notif.type === 'sequence' ? "bg-blue-500/20 border-blue-500/40" :
+              notif.type === 'zone' ? "bg-emerald-500/20 border-emerald-500/40" :
               "bg-purple-500/20 border-purple-500/40"
             )}>
               {notif.type === 'vacuum' ? <AlertTriangle className="w-4 h-4" /> : 
                notif.type === 'omega' ? <Crown className="w-4 h-4 text-gold" /> :
                notif.type === 'sequence' ? <History className="w-4 h-4 text-blue-400" /> :
+               notif.type === 'zone' ? <PieChart className="w-4 h-4 text-emerald-400" /> :
                <Repeat className="w-4 h-4" />}
             </div>
             <span className="text-[11px] font-black uppercase tracking-wider">{notif.message}</span>
