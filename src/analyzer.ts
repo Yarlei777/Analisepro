@@ -164,7 +164,7 @@ export function analyzeHistory(history: number[]) {
 
     // CAMADA EXTRA: Camuflados (Soma de Dígitos)
     const sumDigits = (n: number) => n < 10 ? n : Math.floor(n / 10) + (n % 10);
-    if (sumDigits(s.num) === sumDigits(lastNum)) { s.score += 8; s.reasons.push('Soma Camuflada'); }
+    if (s.num !== lastNum && sumDigits(s.num) === sumDigits(lastNum)) { s.score += 8; s.reasons.push('Soma Camuflada'); }
 
     // CAMADA 3: Calor e Momentum (Heatmap)
     const heat = history.slice(0, 15).filter(n => n === s.num).length;
@@ -207,11 +207,11 @@ export function analyzeHistory(history: number[]) {
     // CAMADA 13: Dealer Signature
     if (history.length > 5) {
         const avgDealerDisplacement = Math.floor((getDist(history[0], history[1]) + getDist(history[1], history[2])) / 2);
-        if (getDist(lastNum, s.num) === avgDealerDisplacement) { s.score += 20; s.reasons.push('Assinatura do Dealer'); }
+        if (s.num !== lastNum && getDist(lastNum, s.num) === avgDealerDisplacement) { s.score += 20; s.reasons.push('Assinatura do Dealer'); }
     }
 
     // CAMADA 13.5: Ballistic Mode
-    if (history.length > 2 && getDist(lastNum, s.num) === getDist(history[1], history[0])) { s.score += 15; s.reasons.push('Rastreamento Balístico'); }
+    if (history.length > 2 && s.num !== lastNum && getDist(lastNum, s.num) === getDist(history[1], history[0])) { s.score += 15; s.reasons.push('Rastreamento Balístico'); }
 
     // CAMADA 14: Z-Score (Estatística)
     const expected = history.length / 37;
@@ -220,7 +220,7 @@ export function analyzeHistory(history: number[]) {
 
     // CAMADA 15: Cluster Analysis
     const clusterScore = Math.abs(s.num - lastNum);
-    if (clusterScore <= 3) { s.score += 5; s.reasons.push('Proximidade de Mesa'); }
+    if (s.num !== lastNum && clusterScore <= 3) { s.score += 5; s.reasons.push('Proximidade de Mesa'); }
 
     // CAMADA 15.5: Momentum Inverso
     if (gaps[s.num] > 15 && gaps[s.num] < 20) { s.score += 6; s.reasons.push('Preparação Inversa'); }
@@ -235,13 +235,13 @@ export function analyzeHistory(history: number[]) {
     if (stats.dealerRhythm === 'INSTÁVEL' && s.num > 15 && s.num < 25) { s.score += 4; } // Tendência de meio de tabela no caos
 
     // CAMADA 17: Cross-Terminal Convergence
-    if (s.num % 10 === lastTerminal) { s.score += 10; s.reasons.push('Terminal Repetido'); }
+    if (s.num !== lastNum && s.num % 10 === lastTerminal) { s.score += 10; s.reasons.push('Terminal Repetido'); }
 
     // CAMADA 18: Approximation Engine
     if (history.length > 1 && Math.abs(s.num - history[1]) === 1) { s.score += 6; }
 
     // CAMADA 19: Short-Term Convergence
-    if (history.slice(0, 3).includes(s.num)) { s.score += 3; }
+    if (s.num !== lastNum && history.slice(0, 3).includes(s.num)) { s.score += 3; }
 
     // CAMADA 20: Lei do Terceiro
     if (history.length >= 37 && !history.slice(0, 37).includes(s.num)) { s.score += 25; s.reasons.push('Lei do Terceiro (Ausente)'); }
@@ -256,11 +256,11 @@ export function analyzeHistory(history: number[]) {
     // CAMADA 22: Geometria de Mesa (Dúzias/Colunas)
     const duziaS = Math.min(Math.floor((s.num - 1) / 12), 2);
     const duziaL = lastNum === 0 ? -1 : Math.min(Math.floor((lastNum - 1) / 12), 2);
-    if (duziaS === duziaL) { s.score += 3; }
+    if (s.num !== lastNum && duziaS === duziaL) { s.score += 3; }
 
     // CAMADA 23: Fibonacci Resonance
     const fibs = [1, 2, 3, 5, 8, 13, 21, 34];
-    if (fibs.includes(s.num) && fibs.includes(lastNum)) { s.score += 4; s.reasons.push('Ressonância Fibonacci'); }
+    if (s.num !== lastNum && fibs.includes(s.num) && fibs.includes(lastNum)) { s.score += 4; s.reasons.push('Ressonância Fibonacci'); }
 
     // CAMADA 24: Detector de Alternância
     const colorS = getNumberColor(s.num);
@@ -272,7 +272,7 @@ export function analyzeHistory(history: number[]) {
     // CAMADA 25: Wheel Slice Analysis
     const isVoisins = [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25].includes(s.num);
     const lastVoisins = [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25].includes(lastNum);
-    if (isVoisins && lastVoisins) { s.score += 4; }
+    if (s.num !== lastNum && isVoisins && lastVoisins) { s.score += 4; }
 
     // CAMADA 26: Historical Mirroring
     if (history.length > 10 && history[9] === s.num) { s.score += 6; s.reasons.push('Eco de Décimo'); }
@@ -293,6 +293,11 @@ export function analyzeHistory(history: number[]) {
         s.score += 35; // Compensação massiva
         s.reasons.push('Alvo de Compensação Pós-Quebra (Camada Suprema)');
       }
+    }
+
+    // Penalize repeating the exact same number unless it is extremely hot
+    if (s.num === lastNum) {
+      s.score -= 15;
     }
 
     if (s.score > maxScore) maxScore = s.score;

@@ -357,6 +357,10 @@ export default function App() {
                   lastNumber={history[0]} 
                   quebraTarget={stats.quebraTarget} 
                   playSignal={playSignal}
+                  ballisticsTargets={ballistics.active ? ballistics.targets : []}
+                  omegaTarget={stats.omegaTarget}
+                  vacuumAlerts={stats.vacuumAlerts}
+                  sequenceTarget={stats.sequenceTarget}
                 />
               </div>
 

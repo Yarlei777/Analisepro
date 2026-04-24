@@ -8,9 +8,22 @@ interface RouletteWheelProps {
   lastNumber?: number;
   quebraTarget?: number | null;
   playSignal?: 'red' | 'yellow' | 'green' | string | boolean;
+  ballisticsTargets?: number[];
+  omegaTarget?: number | null;
+  vacuumAlerts?: { num: number; gap: number }[];
+  sequenceTarget?: number | null;
 }
 
-export const RouletteWheel: React.FC<RouletteWheelProps> = ({ targets, lastNumber, quebraTarget, playSignal = 'red' }) => {
+export const RouletteWheel: React.FC<RouletteWheelProps> = ({ 
+  targets, 
+  lastNumber, 
+  quebraTarget, 
+  playSignal = 'red',
+  ballisticsTargets = [],
+  omegaTarget = null,
+  vacuumAlerts = [],
+  sequenceTarget = null
+}) => {
   // Racetrack geometry constants
   const R = 80;
   const H = 420;
@@ -182,7 +195,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = ({ targets, lastNumbe
             </feMerge>
           </filter>
 
-          <filter id="glowQuebra">
+          <filter id="glowRed">
             <feGaussianBlur stdDeviation="6" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
@@ -256,29 +269,55 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = ({ targets, lastNumbe
         {/* Overlay Texts and Target Highlights */}
         {ROULETTE_NUMBERS.map((num, i) => {
           const { x, y } = getPoint(i * segmentL);
-          const isTarget = targets.includes(num);
+          
+          const getMirrors = (n: number) => {
+            const m: Record<number, number> = { 12: 21, 21: 12, 13: 31, 31: 13, 23: 32, 32: 23, 16: 19, 19: 16, 6: 9, 9: 6 };
+            return m[n] !== undefined ? [n, m[n]] : [n];
+          };
+
+          const getNeighbors = (n: number) => {
+            const idx = ROULETTE_NUMBERS.indexOf(n);
+            if (idx === -1) return [n];
+            return [
+              ROULETTE_NUMBERS[(idx - 1 + ROULETTE_NUMBERS.length) % ROULETTE_NUMBERS.length],
+              n,
+              ROULETTE_NUMBERS[(idx + 1) % ROULETTE_NUMBERS.length]
+            ];
+          };
+
+          const isTarget = targets.some(t => {
+            const mirrors = getMirrors(t);
+            return mirrors.some(m => getNeighbors(m).includes(num));
+          });
+          const isQuebra = quebraTarget !== null && getMirrors(quebraTarget).includes(num);
+          const isBallistics = ballisticsTargets.some(t => getMirrors(t).includes(num));
+          const isVacuum = vacuumAlerts.some(v => getMirrors(v.num).includes(num));
+          const isSequence = sequenceTarget !== null && getMirrors(sequenceTarget).includes(num);
+          
+          const isOmega = omegaTarget !== null && getMirrors(omegaTarget).includes(num);
+          const isAnyTarget = isTarget || isQuebra || isBallistics || isVacuum || isSequence;
+          
           const isLast = lastNumber === num;
-          const isQuebra = quebraTarget === num;
 
           return (
             <g key={`text-${num}`}>
-              {/* Quebra Highlight (Blue Neon) */}
-              {isQuebra && (
-                <g filter="url(#glowQuebra)">
-                  <circle
+              {/* Omega Highlight (Neon Red) */}
+              {isOmega && (
+                <g filter="url(#glowRed)">
+                   <circle
                     cx={x}
                     cy={y}
-                    r="19"
-                    fill="rgba(0, 150, 255, 0.3)"
-                    stroke="#00ffff"
+                    r="20"
+                    fill="rgba(239, 68, 68, 0.3)"
+                    stroke="#ef4444"
                     strokeWidth="3.5"
                     className="pointer-events-none animate-pulse"
                   />
                 </g>
               )}
 
-              {/* Target Highlight with Glow */}
-              {isTarget && !isQuebra && (
+              {/* General Target Highlight with Gold Glow */}
+              {isAnyTarget && !isOmega && (
                 <g filter="url(#glowGold)">
                   <circle
                     cx={x}
@@ -287,13 +326,13 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = ({ targets, lastNumbe
                     fill="rgba(212, 175, 55, 0.4)"
                     stroke="#d4af37"
                     strokeWidth="2.5"
-                    className="pointer-events-none"
+                    className="pointer-events-none animate-pulse"
                   />
                 </g>
               )}
               
               {/* Last Number Highlight */}
-              {isLast && !isTarget && !isQuebra && (
+              {isLast && !isAnyTarget && !isOmega && (
                 <circle
                   cx={x}
                   cy={y}
@@ -311,15 +350,15 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = ({ targets, lastNumbe
                 x={x}
                 y={y}
                 fill="white"
-                fontSize={isQuebra ? "18" : isTarget ? "16" : "13"}
+                fontSize={isOmega ? "19" : isAnyTarget ? "16" : "13"}
                 fontWeight="900"
                 fontFamily="Inter, sans-serif"
                 textAnchor="middle"
                 alignmentBaseline="central"
                 className={cn(
                   "pointer-events-none transition-all duration-300",
-                  isQuebra ? "fill-cyan-400 drop-shadow-[0_0_15px_rgba(0,255,255,1)]" :
-                  isTarget ? "fill-gold brightness-150 drop-shadow-[0_0_10px_rgba(212,175,55,0.8)]" : "opacity-90 font-extrabold"
+                  isOmega ? "fill-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,1)]" :
+                  isAnyTarget ? "fill-gold brightness-150 drop-shadow-[0_0_10px_rgba(212,175,55,0.8)]" : "opacity-90 font-extrabold"
                 )}
               >
                 {num}
