@@ -54,6 +54,8 @@ import {
   getNumberColor,
   RED_NUMBERS,
   AI_LAYERS,
+  getMirrors,
+  getNeighbors,
 } from "./constants";
 import { cn } from "./lib/utils";
 import { analyzeHistory } from "./analyzer";
@@ -63,12 +65,16 @@ type Tab = "analysis" | "stats" | "history";
 
 interface AlertNotification {
   id: string;
-  type: "vacuum" | "terminal" | "omega" | "sequence" | "zone";
+  type: "vacuum" | "terminal" | "omega" | "sequence" | "zone" | "timeMirror";
   message: string;
 }
 
+const EMPTY_ARRAY: number[] = [];
+
 export default function App() {
   const [history, setHistory] = useState<number[]>([]);
+  const [isVoltaCerta, setIsVoltaCerta] = useState(false);
+  const [winStreak, setWinStreak] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [rotation, setRotation] = useState(0);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -156,6 +162,17 @@ export default function App() {
             id: `seq-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
             type: "sequence",
             message: `PADRÃO HISTÓRICO: O PRÓXIMO PODE SER ${stats.sequenceTarget}`,
+          });
+        }
+
+        if (stats.timeMirrorAlert && (stats as any).timeMirrorTarget !== null) {
+          const seqStr = (stats as any).timeMirrorSeq
+            ? (stats as any).timeMirrorSeq.join(" e ")
+            : "";
+          newNotifs.push({
+            id: `timeMirror-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+            type: "timeMirror",
+            message: `ESPELHO TEMPORAL (Repetição de ${seqStr}): JOGAR NO ${(stats as any).timeMirrorTarget} E VIZINHOS`,
           });
         }
 
@@ -258,10 +275,68 @@ export default function App() {
     return Array.from(new Set(all));
   }, [targets, ballistics]);
 
+  const allHighlightedNumbers = useMemo(() => {
+    const list = new Set<number>();
+    ROULETTE_NUMBERS.forEach((num) => {
+      const isTarget = combinedTargets.some((t) => {
+        const mirrors = getMirrors(t);
+        return mirrors.some((m) => getNeighbors(m, 1).includes(num));
+      });
+      const isQuebra =
+        stats.quebraTarget !== null &&
+        getMirrors(stats.quebraTarget).includes(num);
+      const isBallistics =
+        ballistics.active &&
+        ballistics.targets.some((t) => getMirrors(t).includes(num));
+      const isVacuum = stats.vacuumAlerts.some((v) =>
+        getMirrors(v.num).includes(num),
+      );
+      const isSequence =
+        stats.sequenceTarget !== null &&
+        getMirrors(stats.sequenceTarget).includes(num);
+      const timeTarget = (stats as any).timeMirrorTarget;
+      const isTimeMirror =
+        timeTarget !== undefined &&
+        timeTarget !== null &&
+        getMirrors(timeTarget).includes(num);
+      const isOmega =
+        stats.omegaTarget !== null &&
+        getMirrors(stats.omegaTarget).includes(num);
+      if (
+        isTarget ||
+        isQuebra ||
+        isBallistics ||
+        isVacuum ||
+        isSequence ||
+        isTimeMirror ||
+        isOmega
+      ) {
+        list.add(num);
+      }
+    });
+    return Array.from(list);
+  }, [combinedTargets, stats, ballistics]);
+  const allHighlightedRef = React.useRef<number[]>([]);
+  React.useEffect(() => {
+    allHighlightedRef.current = allHighlightedNumbers;
+  }, [allHighlightedNumbers]);
+
   const addNumber = React.useCallback((num: number) => {
+    const active = allHighlightedRef.current;
+    if (active.length > 0) {
+      if (active.includes(num)) {
+        setIsVoltaCerta(false);
+        setWinStreak((s) => s + 1);
+      } else {
+        setIsVoltaCerta(true);
+        setWinStreak(0);
+      }
+    } else {
+      setIsVoltaCerta(false);
+      setWinStreak(0);
+    }
     setHistory((prev) => [num, ...prev].slice(0, 200));
     setRotation((prev) => prev + 1440 + Math.random() * 360);
-    // Auto-toggle direction for next throw (standard dealer behavior)
     setIsNextRight((prev) => !prev);
   }, []);
 
@@ -274,6 +349,8 @@ export default function App() {
 
   const resetHistory = React.useCallback(() => {
     setHistory([]);
+    setIsVoltaCerta(false);
+    setWinStreak(0);
     setShowClearConfirm(false);
   }, []);
 
@@ -391,12 +468,15 @@ export default function App() {
                   lastNumber={history[0]}
                   quebraTarget={stats.quebraTarget}
                   playSignal={playSignal}
+                  isVoltaCerta={isVoltaCerta}
+                  winStreak={winStreak}
                   ballisticsTargets={
-                    ballistics.active ? ballistics.targets : []
+                    ballistics.active ? ballistics.targets : EMPTY_ARRAY
                   }
                   omegaTarget={stats.omegaTarget}
                   vacuumAlerts={stats.vacuumAlerts}
                   sequenceTarget={stats.sequenceTarget}
+                  timeMirrorTarget={(stats as any).timeMirrorTarget}
                 />
               </div>
 

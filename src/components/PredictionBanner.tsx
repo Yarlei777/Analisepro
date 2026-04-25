@@ -14,7 +14,7 @@ interface PredictionBannerProps {
   };
 }
 
-export const PredictionBanner: React.FC<PredictionBannerProps> = ({ confidence, activeSector, ballistics }) => {
+export const PredictionBanner: React.FC<PredictionBannerProps> = React.memo(({ confidence, activeSector, ballistics }) => {
   return (
     <div className="w-full max-w-2xl glass-panel p-6 relative overflow-hidden group premium-border">
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
@@ -201,4 +201,4 @@ export const PredictionBanner: React.FC<PredictionBannerProps> = ({ confidence, 
       </div>
     </div>
   );
-};
+});

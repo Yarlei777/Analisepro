@@ -25,6 +25,9 @@ export function analyzeHistory(
     omegaTarget: null as number | null,
     sequenceAlert: false,
     sequenceTarget: null as number | null,
+    timeMirrorAlert: false,
+    timeMirrorTarget: null as number | null,
+    timeMirrorSeq: [] as number[],
     mirrorAlert: false,
     mirrorTarget: null as number | null,
     lastPattern: "---" as string,
@@ -37,6 +40,7 @@ export function analyzeHistory(
     winRate: 0,
     winsCount: 0,
     lossesCount: 0,
+    isVoltaCerta: false,
   };
 
   let confidence = 0;
@@ -129,6 +133,16 @@ export function analyzeHistory(
     );
     if (seqSorted.length > 0) {
       thirdNumberTarget = parseInt(seqSorted[0][0]);
+    }
+
+    // --- Time Mirror (Espelho Temporal / Vizinhos) ---
+    for (let i = 2; i < history.length - 1; i++) {
+      if (getDist(history[i], n1) <= 2 && getDist(history[i + 1], n2) <= 2) {
+        stats.timeMirrorAlert = true;
+        stats.timeMirrorTarget = history[i - 1];
+        stats.timeMirrorSeq = [history[i + 1], history[i]];
+        break; // Match mais recente ganha
+      }
     }
   }
 
@@ -245,6 +259,16 @@ export function analyzeHistory(
       s.reasons.push("Trinômio Histórico (Third Number)");
     }
 
+    // CAMADA 6.5: Time Mirror (Espelho Histórico Fuzzy)
+    if (
+      stats.timeMirrorAlert &&
+      stats.timeMirrorTarget !== null &&
+      getDist(stats.timeMirrorTarget, s.num) <= 2
+    ) {
+      s.score += 25;
+      s.reasons.push("Espelho Temporal do Histórico");
+    }
+
     // CAMADA 7: Sector Velocity & Momentum
     const lastSectorHitDist = getDist(s.num, lastNum);
     if (lastSectorHitDist > 10 && lastSectorHitDist < 15) {
@@ -288,6 +312,12 @@ export function analyzeHistory(
       s.score += 4;
     }
 
+    // CAMADA ZERO: Zero Vacuum Proxy
+    if ((s.num === 10 || s.num === 20 || s.num === 30) && gaps[0] >= 20) {
+      s.score += 15 + Math.floor(gaps[0] / 3);
+      s.reasons.push(`Falso Zero (Zero ausente há ${gaps[0]})`);
+    }
+
     // CAMADA 13: Dealer Signature
     if (history.length > 5) {
       const avgDealerDisplacement = Math.floor(
@@ -310,6 +340,29 @@ export function analyzeHistory(
     ) {
       s.score += 15;
       s.reasons.push("Rastreamento Balístico");
+    }
+
+    // CAMADA 13.8: Ressonância Cinética (9 a 14 revoluções da bola)
+    // Devido à física da roleta de 9-14 voltas, os saltos físicos se concentram
+    // frequentemente numa janela de 9 a 14 casas de distância da última caçapa.
+    if (history.length > 3) {
+      const distS = getDist(lastNum, s.num);
+      const isGoldenDrop = distS >= 9 && distS <= 14;
+      const lastDist = getDist(history[0], history[1]);
+      const prevDist = getDist(history[1], history[2]);
+
+      if (
+        isGoldenDrop &&
+        lastDist >= 9 &&
+        lastDist <= 14 &&
+        prevDist >= 9 &&
+        prevDist <= 14
+      ) {
+        s.score += 18;
+        s.reasons.push("Cinemática de Queda (9-14)");
+      } else if (isGoldenDrop && lastDist >= 9 && lastDist <= 14) {
+        s.score += 6;
+      }
     }
 
     // CAMADA 14: Z-Score (Estatística)
@@ -474,16 +527,9 @@ export function analyzeHistory(
     stats.omegaTarget = best.num;
   }
 
-  // Generate targets priority (vizinhos de cilindro do top numero)
+  // Generate targets priority
   if (best) {
-    const topIdx = getIdx(best.num);
-    targets = [
-      ROULETTE_NUMBERS[(topIdx - 2 + 37) % 37],
-      ROULETTE_NUMBERS[(topIdx - 1 + 37) % 37],
-      best.num,
-      ROULETTE_NUMBERS[(topIdx + 1) % 37],
-      ROULETTE_NUMBERS[(topIdx + 2) % 37],
-    ];
+    targets = [best.num];
   }
 
   // --- Hierarquia de Sinalização e Confiança ---
@@ -633,40 +679,61 @@ export function analyzeHistory(
     }
   }
 
-  // --- 8. Expansão de Alvos ---
-  // Expandir alvos com os vizinhos e os padrões encontrados (Omega, Sequence, Quebra)
-  let allTargets = [...targets];
+  // --- 8. Expansão de Alvos Inteligente ---
+  // Apenas expandir com 1 vizinho se o alvo principal estiver sozinho
+  let primaryTargets = [...targets];
   if (stats.omegaAlert && stats.omegaTarget !== null) {
-    allTargets.push(stats.omegaTarget);
+    primaryTargets.push(stats.omegaTarget);
   }
   if (stats.sequenceAlert && stats.sequenceTarget !== null) {
-    allTargets.push(stats.sequenceTarget);
-    const seqIdx = ROULETTE_NUMBERS.indexOf(stats.sequenceTarget);
-    allTargets.push(ROULETTE_NUMBERS[(seqIdx + 1) % 37]);
-    allTargets.push(ROULETTE_NUMBERS[(seqIdx - 1 + 37) % 37]);
+    primaryTargets.push(stats.sequenceTarget);
   }
   if (stats.quebraAlert && stats.quebraTarget !== null) {
-    allTargets.push(stats.quebraTarget);
-    const qIdx = ROULETTE_NUMBERS.indexOf(stats.quebraTarget);
-    allTargets.push(ROULETTE_NUMBERS[(qIdx + 1) % 37]);
-    allTargets.push(ROULETTE_NUMBERS[(qIdx - 1 + 37) % 37]);
+    primaryTargets.push(stats.quebraTarget);
   }
 
-  let uniqueTargets = Array.from(new Set(allTargets));
-  const expanded = new Set(uniqueTargets);
-  const originalSet = new Set(uniqueTargets);
-  uniqueTargets.forEach((num) => {
+  primaryTargets = Array.from(new Set(primaryTargets));
+  const expandedTargets = new Set<number>(primaryTargets);
+
+  primaryTargets.forEach((num) => {
     const idx = ROULETTE_NUMBERS.indexOf(num);
     const rightNeighbor = ROULETTE_NUMBERS[(idx + 1) % 37];
     const leftNeighbor = ROULETTE_NUMBERS[(idx - 1 + 37) % 37];
 
-    if (!originalSet.has(rightNeighbor) && !originalSet.has(leftNeighbor)) {
-      expanded.add(rightNeighbor);
-      expanded.add(leftNeighbor);
+    if (
+      !primaryTargets.includes(rightNeighbor) &&
+      !primaryTargets.includes(leftNeighbor)
+    ) {
+      expandedTargets.add(rightNeighbor);
+      expandedTargets.add(leftNeighbor);
     }
   });
 
-  targets = Array.from(expanded);
+  targets = Array.from(expandedTargets);
+
+  // --- 9. Espelhos Diretos ---
+  // Adiciona o espelho correspondente sem adicionar vizinhos a ele
+  const directMirrors: Record<number, number> = {
+    12: 21,
+    21: 12,
+    32: 23,
+    23: 32,
+    16: 19,
+    19: 16,
+    6: 9,
+    9: 6,
+    31: 13,
+    13: 31,
+  };
+
+  const finalTargets = new Set(targets);
+  targets.forEach((num) => {
+    if (directMirrors[num] !== undefined) {
+      finalTargets.add(directMirrors[num]);
+    }
+  });
+
+  targets = Array.from(finalTargets);
 
   // --- Cálculo de Win/Loss e Entropia Global ---
   if (!isRecursive && history.length >= 15) {
@@ -680,7 +747,10 @@ export function analyzeHistory(
       const prevHistory = history.slice(i + 1);
       if (prevHistory.length > 5) {
         const pastAnalysis = analyzeHistory(prevHistory, true);
-        const hit = pastAnalysis.targets.includes(resultNumber) || pastAnalysis.stats.omegaTarget === resultNumber || pastAnalysis.stats.quebraTarget === resultNumber;
+        const hit =
+          pastAnalysis.targets.includes(resultNumber) ||
+          pastAnalysis.stats.omegaTarget === resultNumber ||
+          pastAnalysis.stats.quebraTarget === resultNumber;
         if (hit) winsCount++;
         else lossesCount++;
       }
@@ -706,7 +776,7 @@ export function analyzeHistory(
       }
     }
     const baseEntropy = Math.round((distanceChanges / maxLookback) * 100);
-    const entropyLevel = Math.min(100, baseEntropy + (lossesCount * 5));
+    const entropyLevel = Math.min(100, baseEntropy + lossesCount * 5);
     stats.entropyLevel = entropyLevel;
 
     if (entropyLevel >= 70 && stats.winRate <= 30) {
@@ -717,14 +787,15 @@ export function analyzeHistory(
     if (stats.crazyTable) {
       // Se há um sinal extremo balístico num cenário caótico
       if (stats.omegaAlert || stats.quebraAlert) {
-         playSignal = "green";
-         confidence = Math.max(confidence, 99);
-         biasMessage = "ANOMALIA BALÍSTICA NA MESA MALUCA (ALTA CONFIANÇA)";
+        playSignal = "green";
+        confidence = Math.max(confidence, 99);
+        biasMessage = "ANOMALIA BALÍSTICA NA MESA MALUCA (ALTA CONFIANÇA)";
       } else {
-         playSignal = "red";
-         confidence = 0;
-         biasMessage = "MESA MALUCA / ALTA ENTROPIA: NÃO JOGUE (BAIXA ASSERTIVIDADE)";
-         targets = []; // Evitar entradas aleatórias
+        playSignal = "red";
+        confidence = 0;
+        biasMessage =
+          "MESA MALUCA / ALTA ENTROPIA: NÃO JOGUE (BAIXA ASSERTIVIDADE)";
+        targets = []; // Evitar entradas aleatórias
       }
     }
   }
@@ -733,7 +804,8 @@ export function analyzeHistory(
   // Se não estamos em uma análise recursiva e já temos dados suficientes
   if (!isRecursive && history.length > 15) {
     const prevAnalysis = analyzeHistory(history.slice(1), true);
-    // Se a rodada anterior deu sinal verde (ou amarelo)
+
+    // Lógicas de Sinal de win/loss da análise anterior
     if (
       prevAnalysis.playSignal === "green" ||
       prevAnalysis.playSignal === "yellow"
@@ -745,14 +817,14 @@ export function analyzeHistory(
         playSignal = "yellow";
         confidence = Math.min(confidence, 75); // Confidence shouldn't be 95 anymore
         if (!stats.crazyTable) {
-            biasMessage = "GREEN ANTERIOR: SINAL AMARELO (JÁ BATEU UMA VEZ)";
+          biasMessage = "GREEN ANTERIOR: SINAL AMARELO (JÁ BATEU UMA VEZ)";
         }
       } else {
         // Se não bater na próxima rodada fica verde pq a volta e certa
         playSignal = "green";
         confidence = Math.max(confidence, 95);
         if (!stats.crazyTable) {
-            biasMessage = "RED DA ANTERIOR: SINAL VERDE (A VOLTA SEMPRE PAGA)";
+          biasMessage = "RED DA ANTERIOR: SINAL VERDE (A VOLTA SEMPRE PAGA)";
         }
       }
 

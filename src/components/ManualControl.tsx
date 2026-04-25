@@ -15,7 +15,7 @@ interface ManualControlProps {
   addNumber: (val: number) => void;
 }
 
-export const ManualControl: React.FC<ManualControlProps> = ({
+export const ManualControl: React.FC<ManualControlProps> = React.memo(({
   isNextRight,
   setIsNextRight,
   removeLast,
@@ -109,4 +109,4 @@ export const ManualControl: React.FC<ManualControlProps> = ({
       <NumberGrid onAddNumber={addNumber} />
     </div>
   );
-};
+});

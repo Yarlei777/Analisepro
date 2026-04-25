@@ -8,7 +8,7 @@ interface NeuralArchitectureProps {
   historyLength: number;
 }
 
-export const NeuralArchitecture: React.FC<NeuralArchitectureProps> = ({
+export const NeuralArchitecture: React.FC<NeuralArchitectureProps> = React.memo(({
   historyLength,
 }) => {
   return (
@@ -151,4 +151,4 @@ export const NeuralArchitecture: React.FC<NeuralArchitectureProps> = ({
       </div>
     </div>
   );
-};
+});

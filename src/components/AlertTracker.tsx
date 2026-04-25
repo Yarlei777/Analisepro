@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Zap, Target, AlertCircle } from 'lucide-react';
+import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { TrendingUp, Zap, Target, AlertCircle } from "lucide-react";
 
 interface AlertTrackerProps {
   stats: {
@@ -21,21 +21,23 @@ interface AlertTrackerProps {
   };
 }
 
-export const AlertTracker: React.FC<AlertTrackerProps> = ({ stats }) => {
+export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) => {
   return (
     <div className="w-full max-w-2xl space-y-4">
       <AnimatePresence mode="popLayout">
         {stats.crazyTable && (
-          <motion.div 
+          <motion.div
             key="alert-crazy-table"
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="text-[10px] font-black text-red-500 bg-red-500/10 py-3 rounded-xl border border-red-500/20 flex flex-col items-center justify-center space-y-1 text-center px-4"
           >
             <div className="flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 animate-pulse" />
-              <span className="tracking-[0.2em]">ALERTA: MESA MALUCA / NÃO ESTÁ PAGANDO</span>
+              <span className="tracking-[0.2em]">
+                ALERTA: MESA MALUCA / NÃO ESTÁ PAGANDO
+              </span>
             </div>
             <span className="text-[8px] font-mono opacity-80 tracking-widest">
               ENTROPIA: {stats.entropyLevel}% | ASSERTIVIDADE: {stats.winRate}%
@@ -44,59 +46,69 @@ export const AlertTracker: React.FC<AlertTrackerProps> = ({ stats }) => {
         )}
 
         {stats.biasDetected && !stats.crazyTable && (
-          <motion.div 
+          <motion.div
             key="alert-bias"
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="text-[10px] font-black text-gold bg-gold/10 py-3 rounded-xl border border-gold/20 flex items-center justify-center space-x-2"
           >
             <TrendingUp className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">VIÉS ESTATÍSTICO DETECTADO: NÚMERO VICIADO</span>
+            <span className="tracking-[0.2em]">
+              VIÉS ESTATÍSTICO DETECTADO: NÚMERO VICIADO
+            </span>
           </motion.div>
         )}
 
         {stats.terminalRepeat && (
-          <motion.div 
+          <motion.div
             key="alert-terminal"
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 flex items-center justify-center space-x-2"
           >
             <Zap className="w-4 h-4 animate-bounce" />
-            <span className="tracking-[0.2em]">REPETIÇÃO DE GRUPO TERMINAL ({stats.lastTerminalGroup})</span>
+            <span className="tracking-[0.2em]">
+              REPETIÇÃO DE GRUPO TERMINAL ({stats.lastTerminalGroup})
+            </span>
           </motion.div>
         )}
 
-        {stats.sectorConfidence !== undefined && stats.sectorConfidence > 0.7 && (
-          <motion.div 
-            key="alert-sector-confidence"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 flex items-center justify-center space-x-2"
-          >
-            <Target className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">PADRÃO DE TRANSIÇÃO DE ÁREA DETECTADO: {stats.predictedSector.toUpperCase()}</span>
-          </motion.div>
-        )}
+        {stats.sectorConfidence !== undefined &&
+          stats.sectorConfidence > 0.7 && (
+            <motion.div
+              key="alert-sector-confidence"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 flex items-center justify-center space-x-2"
+            >
+              <Target className="w-4 h-4 animate-pulse" />
+              <span className="tracking-[0.2em]">
+                PADRÃO DE TRANSIÇÃO DE ÁREA DETECTADO:{" "}
+                {stats.predictedSector.toUpperCase()}
+              </span>
+            </motion.div>
+          )}
 
-        {stats.sectorSequencePattern !== 'N/A' && (
-          <motion.div 
+        {stats.sectorSequencePattern !== "N/A" && (
+          <motion.div
             key="alert-sector-sequence"
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="text-[10px] font-black text-gold bg-gold/10 py-3 rounded-xl border border-gold/20 flex items-center justify-center space-x-2"
           >
             <TrendingUp className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">SEQUÊNCIA DE SETORES DETECTADA: {stats.sectorSequencePattern}</span>
+            <span className="tracking-[0.2em]">
+              SEQUÊNCIA DE SETORES DETECTADA: {stats.sectorSequencePattern}
+            </span>
           </motion.div>
         )}
 
         {stats.mirrorAlert && (
-          <motion.div 
+          <motion.div
             key="alert-mirror"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -104,12 +116,31 @@ export const AlertTracker: React.FC<AlertTrackerProps> = ({ stats }) => {
             className="text-[10px] font-black text-red-400 bg-red-500/10 py-3 rounded-xl border border-red-500/20 flex items-center justify-center space-x-2"
           >
             <Zap className="w-4 h-4 animate-bounce" />
-            <span className="tracking-[0.2em]">ALERTA DE ESPELHO: JOGAR NO {stats.mirrorTarget}</span>
+            <span className="tracking-[0.2em]">
+              ALERTA DE ESPELHO: JOGAR NO {stats.mirrorTarget}
+            </span>
           </motion.div>
         )}
 
+        {(stats as any).timeMirrorAlert &&
+          (stats as any).timeMirrorTarget !== null && (
+            <motion.div
+              key="alert-time-mirror"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="text-[10px] font-black text-purple-400 bg-purple-500/10 py-3 rounded-xl border border-purple-500/20 flex items-center justify-center space-x-2"
+            >
+              <Zap className="w-4 h-4 animate-bounce" />
+              <span className="tracking-[0.2em]">
+                ESPELHO TEMPORAL ({(stats as any).timeMirrorSeq?.join(" - ")}):
+                JOGAR NO {(stats as any).timeMirrorTarget} E VIZINHOS
+              </span>
+            </motion.div>
+          )}
+
         {stats.quebraAlert && stats.quebraTarget !== null && (
-          <motion.div 
+          <motion.div
             key="alert-quebra"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -117,10 +148,12 @@ export const AlertTracker: React.FC<AlertTrackerProps> = ({ stats }) => {
             className="text-[10px] font-black text-orange-400 bg-orange-500/10 py-3 rounded-xl border border-orange-500/20 flex items-center justify-center space-x-2"
           >
             <Zap className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">{stats.quebraReason}: JOGAR NO {stats.quebraTarget}</span>
+            <span className="tracking-[0.2em]">
+              {stats.quebraReason}: JOGAR NO {stats.quebraTarget}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
-};
+});

@@ -9,7 +9,7 @@ interface DetailedStatsProps {
   stats: any;
 }
 
-export const DetailedStats: React.FC<DetailedStatsProps> = ({ stats }) => {
+export const DetailedStats: React.FC<DetailedStatsProps> = React.memo(({ stats }) => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -252,4 +252,4 @@ export const DetailedStats: React.FC<DetailedStatsProps> = ({ stats }) => {
       </div>
     </div>
   );
-};
+});

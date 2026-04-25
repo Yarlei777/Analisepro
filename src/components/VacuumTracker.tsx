@@ -7,7 +7,7 @@ interface VacuumTrackerProps {
   vacuumAlerts: { num: number; gap: number }[];
 }
 
-export const VacuumTracker: React.FC<VacuumTrackerProps> = ({ vacuumAlerts }) => {
+export const VacuumTracker: React.FC<VacuumTrackerProps> = React.memo(({ vacuumAlerts }) => {
   if (!vacuumAlerts || vacuumAlerts.length === 0) return null;
 
   return (
@@ -33,4 +33,4 @@ export const VacuumTracker: React.FC<VacuumTrackerProps> = ({ vacuumAlerts }) =>
       </div>
     </div>
   );
-};
+});
