@@ -466,7 +466,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
         <div
           className={cn(
             "absolute -right-6 sm:-right-8 top-[5%] flex flex-col items-center gap-0.5 transition-all duration-500 z-20",
-            !isVoltaCerta && winStreak < 4
+            !isVoltaCerta && winStreak < 3
               ? "opacity-20"
               : "opacity-100 scale-100",
           )}
@@ -475,7 +475,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
           <div
             className={cn(
               "w-10 h-10 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center border transition-all duration-500 shadow-lg backdrop-blur-sm",
-              winStreak >= 4
+              winStreak >= 3
                 ? "bg-amber-500/20 border-amber-500/60 text-amber-400 animate-bounce cursor-pointer"
                 : !isVoltaCerta
                   ? "bg-red-500/10 border-red-500/20 text-red-500/40"
@@ -486,7 +486,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             <Zap
               className={cn(
                 "w-5 h-5 sm:w-8 sm:h-8 drop-shadow-[0_0_8px_currentColor]",
-                winStreak >= 4
+                winStreak >= 3
                   ? "fill-amber-400"
                   : isVoltaCerta && "fill-emerald-400",
               )}
@@ -497,7 +497,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             <span
               className={cn(
                 "text-[7px] sm:text-[9px] font-black uppercase tracking-widest",
-                winStreak >= 4
+                winStreak >= 3
                   ? "text-amber-400"
                   : !isVoltaCerta
                     ? "text-red-500/60"
@@ -505,18 +505,18 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               )}
             >
               {" "}
-              {winStreak >= 4 ? "PADRÃO" : "VOLTA"}{" "}
+              {winStreak >= 3 ? "PADRÃO" : "VOLTA"}{" "}
             </span>{" "}
             <span
               className={cn(
                 "text-[8px] sm:text-[10px] font-black uppercase tracking-tighter whitespace-nowrap px-1.5 py-0.5 rounded border mt-0.5",
-                winStreak >= 4
+                winStreak >= 3
                   ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
                   : "bg-black/50 border-white/10 text-white/90",
               )}
             >
               {" "}
-              {winStreak >= 4
+              {winStreak >= 3
                 ? "PAGAMENTO"
                 : isVoltaCerta
                   ? "CERTA!"
