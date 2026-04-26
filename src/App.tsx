@@ -35,6 +35,7 @@ import { PredictionBanner } from "./components/PredictionBanner";
 import { VacuumTracker } from "./components/VacuumTracker";
 import { AlertTracker } from "./components/AlertTracker";
 import { ManualControl } from "./components/ManualControl";
+import { Login } from "./components/Login";
 import {
   BarChart,
   Bar,
@@ -72,6 +73,7 @@ interface AlertNotification {
 const EMPTY_ARRAY: number[] = [];
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [history, setHistory] = useState<number[]>([]);
   const [isVoltaCerta, setIsVoltaCerta] = useState(false);
   const [winStreak, setWinStreak] = useState(0);
@@ -147,6 +149,14 @@ export default function App() {
               message: `ALERTA DE VÁCUO: NÚMERO ${topVacuum.num} AGUARDADO (GAP: ${topVacuum.gap})`,
             });
           }
+        }
+
+        if ((stats as any).somaAlert && (stats as any).somaTargetSum !== null) {
+          newNotifs.push({
+            id: `soma-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+            type: "soma" as any,
+            message: `ALERTA DE SOMA: TENDÊNCIA NA SOMA ${(stats as any).somaTargetSum}`,
+          });
         }
 
         if (stats.omegaAlert && stats.omegaTarget !== null) {
@@ -359,85 +369,82 @@ export default function App() {
     setIsNextRight((prev) => !prev);
   }, []);
 
+  if (!isAuthenticated) {
+    return <Login onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#050505] text-white font-sans antialiased">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass-panel !rounded-none border-t-0 border-x-0 border-b-gold/20 px-4 md:px-6 h-16 flex items-center justify-between backdrop-blur-3xl overflow-hidden shadow-[0_4px_30px_rgba(212,175,55,0.1)]">
-        {/* Animated Shine Effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/10 to-transparent -translate-x-full animate-[shimmer_4s_infinite] pointer-events-none" />
-
-        {/* Subtle Bottom Glow Line */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-gold/40 to-transparent blur-[0.5px]" />
-
-        <div className="flex items-center space-x-4 relative z-10">
-          <div className="relative">
-            <div className="absolute -inset-1.5 bg-gold/30 rounded-full blur-lg animate-pulse" />
-            <motion.div
-              className="relative w-11 h-11 rounded-full gold-gradient flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.4)] border border-white/30"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-            >
-              <Disc className="w-6 h-6 text-black/80" strokeWidth={2.5} />
-              <div className="absolute inset-0 border-[3px] border-black/10 rounded-full scale-75" />
-            </motion.div>
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-serif font-black italic gold-text tracking-[0.15em] uppercase leading-none drop-shadow-sm">
-              Exu do Ouro
-            </h1>
-            <div className="flex items-center space-x-1.5 mt-1">
-              <span className="w-1.5 h-[1px] bg-gold/50" />
-              <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.4em]">
-                Sistema de Elite
-              </span>
-              <span className="w-1.5 h-[1px] bg-gold/50" />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-4 relative z-10">
-          <div className="hidden md:flex flex-col items-end">
-            <div className="flex items-center space-x-2">
-              <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
-                On-line
-              </span>
-            </div>
-            <span className="text-[8px] text-white/20 uppercase tracking-tighter mt-0.5 font-bold">
-              Protocolo V2.4 Premium
-            </span>
-          </div>
-          <button
-            onClick={() => setIsMuted((prev) => !prev)}
-            className={cn(
-              "w-10 h-10 rounded-full glass-panel flex items-center justify-center border-gold/30 transition-all duration-300 cursor-pointer group shadow-lg",
-              isMuted
-                ? "bg-red-500/10 border-red-500/30 shadow-red-500/5 rotate-12"
-                : "hover:bg-gold/10 hover:shadow-gold/10",
-            )}
-            title={isMuted ? "Ativar Notificações" : "Silenciar Notificações"}
-          >
-            {isMuted ? (
-              <BellOff className="w-5 h-5 text-red-500 transition-all" />
-            ) : (
-              <Bell className="w-5 h-5 text-gold group-hover:scale-110 transition-transform" />
-            )}
-          </button>
-        </div>
-      </header>
-
       {/* Main Viewport */}
       <main className="flex-1 relative p-2 md:p-4 pb-24">
         <NotificationSystem notifications={notifications} />
+
+        <div className="flex items-center justify-between mb-4 relative z-10 px-2 md:px-0">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="absolute -inset-1.5 bg-gold/30 rounded-full blur-lg animate-pulse" />
+              <motion.div
+                className="relative w-10 h-10 rounded-full gold-gradient flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.4)] border border-white/30"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+              >
+                <Disc className="w-5 h-5 text-black/80" strokeWidth={2.5} />
+                <div className="absolute inset-0 border-[3px] border-black/10 rounded-full scale-75" />
+              </motion.div>
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-xl font-serif font-black italic gold-text tracking-[0.15em] uppercase leading-none drop-shadow-sm">
+                Exu do Ouro
+              </h1>
+              <div className="flex items-center space-x-1.5 mt-1">
+                <span className="w-1 h-[1px] bg-gold/50" />
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.4em]">
+                  Sistema de Elite
+                </span>
+                <span className="w-1 h-[1px] bg-gold/50" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <div className="hidden md:flex flex-col items-end mr-2">
+              <div className="flex items-center space-x-1.5">
+                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
+                  On-line
+                </span>
+              </div>
+              <span className="text-[8px] text-white/20 uppercase tracking-tighter mt-0.5 font-bold">
+                Protocolo V2.4
+              </span>
+            </div>
+            <button
+              onClick={() => setIsMuted((prev) => !prev)}
+              className={cn(
+                "w-9 h-9 rounded-full glass-panel flex items-center justify-center border-gold/30 transition-all duration-300 cursor-pointer group shadow-lg",
+                isMuted
+                  ? "bg-red-500/10 border-red-500/30 shadow-red-500/5 rotate-12"
+                  : "hover:bg-gold/10 hover:shadow-gold/10",
+              )}
+              title={isMuted ? "Ativar Notificações" : "Silenciar Notificações"}
+            >
+              {isMuted ? (
+                <BellOff className="w-4 h-4 text-red-500 transition-all" />
+              ) : (
+                <Bell className="w-4 h-4 text-gold group-hover:scale-110 transition-transform" />
+              )}
+            </button>
+          </div>
+        </div>
 
         <AnimatePresence mode="wait">
           {activeTab === "analysis" && (
             <motion.div
               key="analysis"
-              initial={{ opacity: 0, scale: 0.98, filter: "blur(5px)" }}
-              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, scale: 0.98, filter: "blur(5px)" }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
               className="flex flex-col items-center space-y-4"
             >
               <PredictionBanner
@@ -477,16 +484,10 @@ export default function App() {
                   vacuumAlerts={stats.vacuumAlerts}
                   sequenceTarget={stats.sequenceTarget}
                   timeMirrorTarget={(stats as any).timeMirrorTarget}
+                  somaAlert={(stats as any).somaAlert}
+                  somaTargetSum={(stats as any).somaTargetSum}
                 />
               </div>
-
-              <IframeBrowser
-                iframeUrl={iframeUrl}
-                casinoUrl={casinoUrl}
-                setCasinoUrl={setCasinoUrl}
-                setIframeUrl={setIframeUrl}
-                onLaunch={handleLaunchCasino}
-              />
 
               <div className="w-full max-w-md glass-panel p-4 flex justify-around items-center premium-border relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-gold/5 via-transparent to-gold/5" />
@@ -531,10 +532,10 @@ export default function App() {
           {activeTab === "stats" && (
             <motion.div
               key="stats"
-              initial={{ opacity: 0, scale: 0.98, filter: "blur(5px)" }}
-              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, scale: 0.98, filter: "blur(5px)" }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
               className="max-w-6xl mx-auto space-y-6"
             >
               <NeuralArchitecture historyLength={history.length} />
@@ -552,14 +553,24 @@ export default function App() {
             />
           )}
         </AnimatePresence>
+        
+        <div className={cn("mt-4 flex flex-col items-center w-full", activeTab !== "analysis" && "hidden")}>
+          <IframeBrowser
+            iframeUrl={iframeUrl}
+            casinoUrl={casinoUrl}
+            setCasinoUrl={setCasinoUrl}
+            setIframeUrl={setIframeUrl}
+            onLaunch={handleLaunchCasino}
+          />
+        </div>
       </main>
 
       {/* Tab Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent pointer-events-none z-[60]">
-        <div className="max-w-lg mx-auto glass-panel p-1.5 flex justify-between pointer-events-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)] relative overflow-hidden">
+      <nav className="fixed bottom-0 left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-black to-transparent pointer-events-none z-[60]">
+        <div className="max-w-lg mx-auto glass-panel p-1 flex justify-between pointer-events-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)] relative overflow-hidden">
           {/* Sliding Indicator */}
           <motion.div
-            className="absolute top-1.5 bottom-1.5 bg-gold/10 rounded-xl border border-gold/20"
+            className="absolute top-1 bottom-1 bg-gold/10 rounded-xl border border-gold/20"
             initial={false}
             animate={{
               left: `${["analysis", "stats", "history"].indexOf(activeTab) * 33.33 + 0.5}%`,
@@ -570,9 +581,9 @@ export default function App() {
 
           {(["analysis", "stats", "history"] as const).map((tab) => {
             const icons = {
-              analysis: <LayoutDashboard className="w-4 h-4" />,
-              stats: <PieChart className="w-4 h-4" />,
-              history: <List className="w-4 h-4" />,
+              analysis: <LayoutDashboard className="w-3.5 h-3.5" />,
+              stats: <PieChart className="w-3.5 h-3.5" />,
+              history: <List className="w-3.5 h-3.5" />,
             };
             const labels = {
               analysis: "Oráculo",
@@ -585,14 +596,14 @@ export default function App() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "flex-1 flex flex-col items-center py-1.5 space-y-1 transition-colors rounded-xl relative z-10",
+                  "flex-1 flex flex-col items-center py-1 space-y-0.5 transition-colors rounded-xl relative z-10",
                   activeTab === tab
                     ? "text-gold"
                     : "text-white/30 hover:text-white/60",
                 )}
               >
                 {icons[tab]}
-                <span className="text-[10px] font-black uppercase tracking-widest">
+                <span className="text-[9px] font-black uppercase tracking-widest">
                   {labels[tab]}
                 </span>
               </button>

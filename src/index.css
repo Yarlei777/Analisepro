@@ -18,6 +18,14 @@
   body {
     @apply overscroll-none touch-pan-y selection:bg-gold/30 selection:text-white;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  input, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
   }
 }
 

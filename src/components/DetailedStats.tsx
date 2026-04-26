@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Target, PieChart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { getNumberColor } from '../constants';
+import { getNumberColor, ROULETTE_NUMBERS } from '../constants';
 import { cn } from '../lib/utils';
 
 interface DetailedStatsProps {
@@ -249,6 +249,59 @@ export const DetailedStats: React.FC<DetailedStatsProps> = React.memo(({ stats }
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="glass-panel p-6 space-y-6 border-blue-500/20 flex flex-col mt-6 relative overflow-hidden">
+         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -z-10" />
+         <div className="flex items-center space-x-3 border-b border-white/5 pb-3">
+            <Target className="w-5 h-5 text-blue-400" />
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">Detecções do Algoritmo</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[8px] font-black text-white/40 uppercase block mb-1.5 tracking-widest">Alvo Quebra (Breaker)</span>
+              <span className={cn("text-[10px] sm:text-xs font-black italic font-serif truncate block", stats.quebraAlert && stats.quebraTarget !== null ? "text-blue-400" : "text-white/20")}>
+                {stats.quebraAlert && stats.quebraTarget !== null ? `Alvo: ${stats.quebraTarget} (${stats.quebraReason})` : 'Inativo'}
+              </span>
+            </div>
+            
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[8px] font-black text-white/40 uppercase block mb-1.5 tracking-widest">Alerta Vácuo</span>
+              <span className={cn("text-[10px] sm:text-xs font-black italic font-serif truncate block", stats.vacuumAlerts?.length > 0 ? "text-purple-400" : "text-white/20")}>
+                {stats.vacuumAlerts?.length > 0 ? `Alvo: ${stats.vacuumAlerts[0].num} (Gap: ${stats.vacuumAlerts[0].gap})` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[8px] font-black text-white/40 uppercase block mb-1.5 tracking-widest">Alerta Ômega</span>
+              <span className={cn("text-[10px] sm:text-xs font-black italic font-serif truncate block", stats.omegaAlert && stats.omegaTarget !== null ? "text-orange-400" : "text-white/20")}>
+                {stats.omegaAlert && stats.omegaTarget !== null ? `Alvo: ${stats.omegaTarget} (e vizinhos)` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[8px] font-black text-white/40 uppercase block mb-1.5 tracking-widest">Padrão Histórico (Sequência)</span>
+              <span className={cn("text-[10px] sm:text-xs font-black italic font-serif truncate block", stats.sequenceAlert && stats.sequenceTarget !== null ? "text-indigo-400" : "text-white/20")}>
+                {stats.sequenceAlert && stats.sequenceTarget !== null ? `Alvo: ${stats.sequenceTarget} (e vizinhos)` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[8px] font-black text-white/40 uppercase block mb-1.5 tracking-widest">Alerta de Soma</span>
+              <span className={cn("text-[10px] sm:text-xs font-black italic font-serif truncate block", stats.somaAlert && stats.somaTargetSum !== null ? "text-pink-400" : "text-white/20")}>
+                {stats.somaAlert && stats.somaTargetSum !== null 
+                  ? `Soma ${stats.somaTargetSum}: [${ROULETTE_NUMBERS.filter(n => (n < 10 ? n : Math.floor(n / 10) + (n % 10)) === stats.somaTargetSum).join(', ')}]` 
+                  : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[8px] font-black text-white/40 uppercase block mb-1.5 tracking-widest">Espelho Temporal</span>
+              <span className={cn("text-[10px] sm:text-xs font-black italic font-serif truncate block", stats.timeMirrorAlert && stats.timeMirrorTarget !== null ? "text-cyan-400" : "text-white/20")}>
+                {stats.timeMirrorAlert && stats.timeMirrorTarget !== null ? `Alvo: ${stats.timeMirrorTarget} (Refência: ${stats.timeMirrorSeq?.join(', ')})` : 'Inativo'}
+              </span>
+            </div>
+          </div>
       </div>
     </div>
   );

@@ -20,6 +20,8 @@ interface RouletteWheelProps {
   vacuumAlerts?: { num: number; gap: number }[];
   sequenceTarget?: number | null;
   timeMirrorTarget?: number | null;
+  somaAlert?: boolean;
+  somaTargetSum?: number | null;
 }
 
 export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
@@ -35,6 +37,8 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
     vacuumAlerts = [],
     sequenceTarget = null,
     timeMirrorTarget = null,
+    somaAlert = false,
+    somaTargetSum = null,
   }) => {
     // Racetrack geometry constants
     const R = 80;
@@ -371,6 +375,10 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             const isTimeMirror =
               timeMirrorTarget !== null &&
               getMirrors(timeMirrorTarget).includes(num);
+            const isSomaTarget =
+              somaAlert &&
+              somaTargetSum !== null &&
+              (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
 
             const isOmega =
               omegaTarget !== null && getMirrors(omegaTarget).includes(num);
@@ -388,37 +396,38 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               isVacuum ||
               isSequence ||
               isTimeMirror ||
+              isSomaTarget ||
               isLast ||
               isLastNeighbor;
 
             return (
               <g key={`text-${num}`}>
-                {/* Omega Highlight (Neon Green) */}
+                {/* Omega Highlight (Neon Blue) */}
                 {isOmega && (
                   <g filter="url(#glowGreen)">
                     <circle
                       cx={x}
                       cy={y}
                       r="20"
-                      fill="rgba(52, 211, 153, 0.3)"
-                      stroke="#34d399"
+                      fill="rgba(0, 229, 255, 0.3)"
+                      stroke="#00e5ff"
                       strokeWidth="3.5"
-                      className="pointer-events-none animate-pulse"
+                      className="pointer-events-none"
                     />
                   </g>
                 )}
 
-                {/* General Target Highlight with Yellow Glow */}
+                {/* General Target Highlight with Neon Green Glow */}
                 {isAnyYellowTarget && !isOmega && (
                   <g filter="url(#glowYellow)">
                     <circle
                       cx={x}
                       cy={y}
                       r="16"
-                      fill="rgba(250, 204, 21, 0.4)"
-                      stroke="#facc15"
+                      fill="rgba(57, 255, 20, 0.3)"
+                      stroke="#39ff14"
                       strokeWidth="2.5"
-                      className="pointer-events-none animate-pulse"
+                      className="pointer-events-none"
                     />
                   </g>
                 )}
@@ -466,7 +475,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
         <div
           className={cn(
             "absolute -right-6 sm:-right-8 top-[5%] flex flex-col items-center gap-0.5 transition-all duration-500 z-20",
-            !isVoltaCerta && winStreak < 3
+            !isVoltaCerta && winStreak !== 3
               ? "opacity-20"
               : "opacity-100 scale-100",
           )}
@@ -475,7 +484,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
           <div
             className={cn(
               "w-10 h-10 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center border transition-all duration-500 shadow-lg backdrop-blur-sm",
-              winStreak >= 3
+              winStreak === 3
                 ? "bg-amber-500/20 border-amber-500/60 text-amber-400 animate-bounce cursor-pointer"
                 : !isVoltaCerta
                   ? "bg-red-500/10 border-red-500/20 text-red-500/40"
@@ -486,7 +495,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             <Zap
               className={cn(
                 "w-5 h-5 sm:w-8 sm:h-8 drop-shadow-[0_0_8px_currentColor]",
-                winStreak >= 3
+                winStreak === 3
                   ? "fill-amber-400"
                   : isVoltaCerta && "fill-emerald-400",
               )}
@@ -497,7 +506,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             <span
               className={cn(
                 "text-[7px] sm:text-[9px] font-black uppercase tracking-widest",
-                winStreak >= 3
+                winStreak === 3
                   ? "text-amber-400"
                   : !isVoltaCerta
                     ? "text-red-500/60"
@@ -505,18 +514,18 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               )}
             >
               {" "}
-              {winStreak >= 3 ? "PADRÃO" : "VOLTA"}{" "}
+              {winStreak === 3 ? "PADRÃO" : "VOLTA"}{" "}
             </span>{" "}
             <span
               className={cn(
                 "text-[8px] sm:text-[10px] font-black uppercase tracking-tighter whitespace-nowrap px-1.5 py-0.5 rounded border mt-0.5",
-                winStreak >= 3
+                winStreak === 3
                   ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
                   : "bg-black/50 border-white/10 text-white/90",
               )}
             >
               {" "}
-              {winStreak >= 3
+              {winStreak === 3
                 ? "PAGAMENTO"
                 : isVoltaCerta
                   ? "CERTA!"

@@ -122,6 +122,21 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
           </motion.div>
         )}
 
+        {(stats as any).somaAlert && (
+          <motion.div
+            key="alert-soma"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="text-[10px] font-black text-blue-400 bg-blue-500/10 py-3 rounded-xl border border-blue-500/20 flex items-center justify-center space-x-2"
+          >
+            <Target className="w-4 h-4 animate-pulse" />
+            <span className="tracking-[0.2em]">
+              ALERTA DE SOMA ({(stats as any).somaTargetSum}): CONVERGÊNCIA NOS NÚMEROS DE SOMA IGUAL
+            </span>
+          </motion.div>
+        )}
+
         {(stats as any).timeMirrorAlert &&
           (stats as any).timeMirrorTarget !== null && (
             <motion.div

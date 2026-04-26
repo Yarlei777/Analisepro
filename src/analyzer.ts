@@ -28,6 +28,8 @@ export function analyzeHistory(
     timeMirrorAlert: false,
     timeMirrorTarget: null as number | null,
     timeMirrorSeq: [] as number[],
+    somaAlert: false,
+    somaTargetSum: null as number | null,
     mirrorAlert: false,
     mirrorTarget: null as number | null,
     lastPattern: "---" as string,
@@ -137,7 +139,7 @@ export function analyzeHistory(
 
     // --- Time Mirror (Espelho Temporal / Vizinhos) ---
     for (let i = 2; i < history.length - 1; i++) {
-      if (getDist(history[i], n1) <= 2 && getDist(history[i + 1], n2) <= 2) {
+      if (getDist(history[i], n1) <= 1 && getDist(history[i + 1], n2) <= 1) {
         stats.timeMirrorAlert = true;
         stats.timeMirrorTarget = history[i - 1];
         stats.timeMirrorSeq = [history[i + 1], history[i]];
@@ -164,6 +166,17 @@ export function analyzeHistory(
   if (mirrors[lastNum]) {
     stats.mirrorAlert = true;
     stats.mirrorTarget = mirrors[lastNum];
+  }
+
+  // --- 4. Análise de Soma (Digit Sum) ---
+  const sumDigits = (n: number) => (n < 10 ? n : Math.floor(n / 10) + (n % 10));
+  if (history.length > 1) {
+    const sum1 = sumDigits(history[0]);
+    const sum2 = sumDigits(history[1]);
+    if (sum1 === sum2) {
+      stats.somaAlert = true;
+      stats.somaTargetSum = sum1;
+    }
   }
 
   // Terminals frequency
@@ -219,11 +232,13 @@ export function analyzeHistory(
     }
 
     // CAMADA EXTRA: Camuflados (Soma de Dígitos)
-    const sumDigits = (n: number) =>
-      n < 10 ? n : Math.floor(n / 10) + (n % 10);
     if (s.num !== lastNum && sumDigits(s.num) === sumDigits(lastNum)) {
       s.score += 8;
       s.reasons.push("Soma Camuflada");
+    }
+    if (stats.somaAlert && sumDigits(s.num) === stats.somaTargetSum && s.num !== lastNum) {
+      s.score += 20;
+      s.reasons.push(`Alerta de Soma (Soma ${stats.somaTargetSum})`);
     }
 
     // CAMADA 3: Calor e Momentum (Heatmap)
@@ -263,7 +278,7 @@ export function analyzeHistory(
     if (
       stats.timeMirrorAlert &&
       stats.timeMirrorTarget !== null &&
-      getDist(stats.timeMirrorTarget, s.num) <= 2
+      getDist(stats.timeMirrorTarget, s.num) <= 1
     ) {
       s.score += 25;
       s.reasons.push("Espelho Temporal do Histórico");

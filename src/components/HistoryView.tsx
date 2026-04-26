@@ -22,9 +22,10 @@ export const HistoryView = React.memo(({
   return (
     <motion.div 
       key="history"
-      initial={{ opacity: 0, scale: 0.98, filter: 'blur(5px)' }}
-      animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, scale: 0.98, filter: 'blur(5px)' }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
       className="w-full max-w-4xl space-y-6"
     >
       <div className="flex items-center justify-between px-2">
