@@ -4,8 +4,8 @@
   "description": "Sistema de Elite para Análise",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050505",
-  "theme_color": "#050505",
+  "background_color": "#240045",
+  "theme_color": "#240045",
   "orientation": "portrait",
   "icons": [
     {

@@ -11,11 +11,12 @@ interface AlertNotification {
 
 interface NotificationSystemProps {
   notifications: AlertNotification[];
+  onDismiss: (id: string) => void;
 }
 
-export const NotificationSystem = React.memo(({ notifications }: NotificationSystemProps) => {
+export const NotificationSystem = React.memo(({ notifications, onDismiss }: NotificationSystemProps) => {
   return (
-    <div className="fixed top-20 right-4 z-[100] flex flex-col space-y-3 pointer-events-none">
+    <div className="fixed top-4 right-4 z-[100] flex flex-col space-y-2 pointer-events-none">
       <AnimatePresence mode="popLayout">
         {notifications.map((notif) => (
           <motion.div
@@ -25,8 +26,16 @@ export const NotificationSystem = React.memo(({ notifications }: NotificationSys
             animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, scale: 0.8, filter: "blur(4px)", transition: { duration: 0.2 } }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.8}
+            onDragEnd={(e, { offset, velocity }) => {
+              if (offset.x > 50 || offset.x < -50 || velocity.x > 500 || velocity.x < -500) {
+                onDismiss(notif.id);
+              }
+            }}
             className={cn(
-              "p-3 rounded-2xl backdrop-blur-xl border-y border-white/5 shadow-2xl relative overflow-hidden group max-w-sm flex items-center space-x-3 pointer-events-auto transition-colors",
+              "p-2.5 rounded-xl backdrop-blur-xl border-y border-white/5 shadow-2xl relative overflow-hidden group max-w-xs flex items-center space-x-2.5 pointer-events-auto transition-colors touch-none",
               notif.type === 'vacuum' ? "bg-black/80 border-amber-500/30 text-amber-400 shadow-amber-500/10" : 
               notif.type === 'omega' ? "bg-black/80 border-gold/30 text-gold shadow-gold/10" :
               notif.type === 'sequence' ? "bg-black/80 border-blue-500/30 text-blue-400 shadow-blue-500/10" :
@@ -43,20 +52,20 @@ export const NotificationSystem = React.memo(({ notifications }: NotificationSys
               "bg-[radial-gradient(ellipse_at_top,_#a855f7_0%,_transparent_70%)]"
             )} />
             <div className={cn(
-              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border relative z-10",
+              "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10",
               notif.type === 'vacuum' ? "bg-amber-500/10 border-amber-500/20" : 
               notif.type === 'omega' ? "bg-gold/10 border-gold/20" :
               notif.type === 'sequence' ? "bg-blue-500/10 border-blue-500/20" :
               notif.type === 'zone' ? "bg-emerald-500/10 border-emerald-500/20" :
               "bg-purple-500/10 border-purple-500/20"
             )}>
-              {notif.type === 'vacuum' ? <AlertTriangle className="w-4 h-4" /> : 
-               notif.type === 'omega' ? <Crown className="w-4 h-4 text-gold drop-shadow-md" /> :
-               notif.type === 'sequence' ? <History className="w-4 h-4 text-blue-400" /> :
-               notif.type === 'zone' ? <PieChart className="w-4 h-4 text-emerald-400" /> :
-               <Repeat className="w-4 h-4" />}
+              {notif.type === 'vacuum' ? <AlertTriangle className="w-3.5 h-3.5" /> : 
+               notif.type === 'omega' ? <Crown className="w-3.5 h-3.5 text-gold drop-shadow-md" /> :
+               notif.type === 'sequence' ? <History className="w-3.5 h-3.5 text-blue-400" /> :
+               notif.type === 'zone' ? <PieChart className="w-3.5 h-3.5 text-emerald-400" /> :
+               <Repeat className="w-3.5 h-3.5" />}
             </div>
-            <span className="text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10">
               {notif.message}
             </span>
           </motion.div>

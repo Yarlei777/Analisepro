@@ -1,9 +1,12 @@
 import { NumberScore } from "./analyzer_types";
 import { ROULETTE_NUMBERS, getNumberColor } from "./constants";
 
+export type BallSize = "standard" | "large" | "small";
+
 export function analyzeHistory(
   history: number[],
   isRecursive: boolean = false,
+  ballSize: BallSize = "standard"
 ) {
   const stats = {
     activeSector: "N/A",
@@ -34,6 +37,7 @@ export function analyzeHistory(
     mirrorTarget: null as number | null,
     lastPattern: "---" as string,
     biasDetected: false,
+    biasTarget: null as number | null,
     sectorConfidence: 0.0,
     zoneBiasAlert: false,
     zoneBiasTarget: "",
@@ -43,6 +47,18 @@ export function analyzeHistory(
     winsCount: 0,
     lossesCount: 0,
     isVoltaCerta: false,
+    robberyAlert: false,
+    robberyRecentCount: 0,
+    robberyGaps: [] as number[],
+    stealingPhaseAlert: false,
+    sleepingDozen: null as number | null,
+    sleepingColumn: null as number | null,
+    sleepingDozenCount: 0,
+    sleepingColumnCount: 0,
+    alternatingColorPattern: false,
+    colorStreak: 0,
+    signatureClusterAlert: false,
+    signatureClusterTarget: "---" as string,
   };
 
   let confidence = 0;
@@ -89,7 +105,7 @@ export function analyzeHistory(
     .sort((a, b) => b.gap - a.gap)
     .slice(0, 3); // top 3 vacuums
 
-  if (history.length < 15) {
+  if (history.length < 28) {
     vacuumTops = [];
   } else {
     vacuumTops = vacuumTops.filter((v) => v.gap >= 25);
@@ -338,23 +354,35 @@ export function analyzeHistory(
       const avgDealerDisplacement = Math.floor(
         (getDist(history[0], history[1]) + getDist(history[1], history[2])) / 2,
       );
-      if (
-        s.num !== lastNum &&
-        getDist(lastNum, s.num) === avgDealerDisplacement
-      ) {
-        s.score += 20;
-        s.reasons.push("Assinatura do Dealer");
+      if (s.num !== lastNum) {
+        const distToLast = getDist(lastNum, s.num);
+        if (distToLast === avgDealerDisplacement) {
+          let pts = 20;
+          if (ballSize === "large") pts = 30;
+          if (ballSize === "small") pts = 10;
+          s.score += pts;
+          s.reasons.push("Assinatura do Dealer");
+        } else if (distToLast === avgDealerDisplacement + 1 || distToLast === avgDealerDisplacement + 2) {
+          // Compensação de velocidade se a bola correr um pouco a mais
+          let pts = 12;
+          if (ballSize === "large") pts = 18;
+          s.score += pts;
+          s.reasons.push("Derrapagem Balística (Bola Rápida)");
+        }
       }
     }
 
     // CAMADA 13.5: Ballistic Mode
-    if (
-      history.length > 2 &&
-      s.num !== lastNum &&
-      getDist(lastNum, s.num) === getDist(history[1], history[0])
-    ) {
-      s.score += 15;
-      s.reasons.push("Rastreamento Balístico");
+    if (history.length > 2 && s.num !== lastNum) {
+       const pastDist = getDist(history[1], history[0]);
+       const currentDist = getDist(lastNum, s.num);
+       if (currentDist === pastDist) {
+         s.score += 15;
+         s.reasons.push("Rastreamento Balístico");
+       } else if (currentDist === pastDist + 1 || currentDist === pastDist + 2) {
+         s.score += 8;
+         s.reasons.push("Correção de Rastreamento (Desvio Leve)");
+       }
     }
 
     // CAMADA 13.8: Ressonância Cinética (9 a 14 revoluções da bola)
@@ -373,10 +401,14 @@ export function analyzeHistory(
         prevDist >= 9 &&
         prevDist <= 14
       ) {
-        s.score += 18;
+        let pts = 18;
+        if (ballSize === "large") pts = 25;
+        s.score += pts;
         s.reasons.push("Cinemática de Queda (9-14)");
       } else if (isGoldenDrop && lastDist >= 9 && lastDist <= 14) {
-        s.score += 6;
+        let pts = 6;
+        if (ballSize === "large") pts = 10;
+        s.score += pts;
       }
     }
 
@@ -510,6 +542,132 @@ export function analyzeHistory(
       s.score += 2;
     } // Leve preferência para quebrar terminal se estava repetindo
 
+    // CAMADA 31: Aceleração/Desaceleração do Rotor (Rotor Acceleration)
+    if (history.length >= 4) {
+      const d1 = getDist(history[1], history[0]); // distância do último giro
+      const d2 = getDist(history[2], history[1]); // penúltimo
+      const d3 = getDist(history[3], history[2]); // antepenúltimo
+      
+      const isDecelerating = d1 < d2 && d2 < d3;
+      const isAccelerating = d1 > d2 && d2 > d3;
+      
+      if (isDecelerating || isAccelerating) {
+        const expectedDist = isDecelerating ? d1 - Math.abs(d2 - d1) : d1 + Math.abs(d1 - d2);
+        const thisDist = getDist(lastNum, s.num);
+        if (Math.abs(thisDist - expectedDist) <= 2 || Math.abs(thisDist - (expectedDist + 37)) <= 2) {
+           s.score += 4;
+           s.reasons.push(isDecelerating ? "Desaceleração do Rotor" : "Aceleração do Rotor");
+        }
+      }
+    }
+
+    // CAMADA 32: Simetria Diametral (Acertos em áreas opostas)
+    if (history.length > 2) {
+      const d1 = getDist(history[1], history[0]);
+      if (d1 >= 17 && d1 <= 20) {
+        const thisDist = getDist(lastNum, s.num);
+        if (thisDist >= 17 && thisDist <= 20) {
+          s.score += 3;
+          s.reasons.push("Eixo de Simetria Diametral");
+        }
+      }
+    }
+
+    // CAMADA 33: Tensão de Poisson (Extremos prestes a romper)
+    if (gaps[s.num] > 45) {
+      s.score += 3;
+      s.reasons.push("Tensão Extrema de Poisson");
+    }
+
+    // CAMADA 34: Ondas de Frequência (Oscilação Maior/Menor)
+    if (history.length > 3 && s.num !== 0) {
+      const isHigh1 = history[0] >= 19;
+      const isHigh2 = history[1] >= 19;
+      const isHigh3 = history[2] >= 19;
+      const thisIsHigh = s.num >= 19;
+      
+      // Se está vindo em padrão de onda: High, Low, High -> próximo Low
+      if (isHigh1 !== isHigh2 && isHigh2 !== isHigh3) {
+        if (thisIsHigh !== isHigh1) { // Continua a onda
+          s.score += 2;
+          s.reasons.push("Onda Oscilatória Maior/Menor");
+        }
+      }
+    }
+
+    // CAMADA 35: Atratores de Caos (Centro de gravidade físico)
+    if (history.length >= 5) {
+      // Pega os índices na roda dos ultimos 5
+      const idxs = history.slice(0, 5).map(n => ROULETTE_NUMBERS.indexOf(n));
+      const avgIdx = Math.floor(idxs.reduce((a, b) => a + b, 0) / 5);
+      const targetByChaos = ROULETTE_NUMBERS[avgIdx % 37];
+      if (getDist(targetByChaos, s.num) <= 2) {
+        s.score += 4;
+        s.reasons.push("Atrator de Caos Físico");
+      }
+    }
+
+    // CAMADA 36: Atração Magnética de Vizinhos (Wheel Cluster Synergy)
+    const wheelIdx = ROULETTE_NUMBERS.indexOf(s.num);
+    const neighborsIdx = [
+      (wheelIdx - 2 + 37) % 37,
+      (wheelIdx - 1 + 37) % 37,
+      (wheelIdx + 1) % 37,
+      (wheelIdx + 2) % 37
+    ];
+    
+    let magneticScore = 0;
+    neighborsIdx.forEach(nIdx => {
+      const neighbor = ROULETTE_NUMBERS[nIdx];
+      const heat = history.slice(0, 15).filter((n) => n === neighbor).length;
+      if (heat > 0) {
+        magneticScore += heat * 2;
+      }
+      if (gaps[neighbor] > 25) {
+        magneticScore += 1;
+      }
+    });
+
+    if (magneticScore > 4) {
+      s.score += Math.min(magneticScore, 6);
+      s.reasons.push("Sinergia de Cluster Magnético");
+    }
+
+    // CAMADA 37: Espelho de Distância da Bola (Distance Mirror Pattern)
+    if (history.length >= 3) {
+      const getDirDist = (nNew: number, nOld: number) => {
+        const idxNew = ROULETTE_NUMBERS.indexOf(nNew);
+        const idxOld = ROULETTE_NUMBERS.indexOf(nOld);
+        if (idxNew === -1 || idxOld === -1) return 0;
+        return (idxNew - idxOld + 37) % 37;
+      };
+
+      const dist1 = getDirDist(history[0], history[1]); // Último pulo
+      const dist2 = getDirDist(history[1], history[2]); // Penúltimo pulo
+
+      if (dist1 > 0 && dist1 === dist2) {
+        const thisDist = getDirDist(s.num, lastNum);
+        if (thisDist === dist1) {
+          s.score += 6;
+          s.reasons.push(`Assinatura de Força: Salto de ${dist1} casas`);
+        } else if (thisDist >= dist1 + 1 && thisDist <= dist1 + 3) {
+          s.score += 4;
+          s.reasons.push(`Escorregamento de Força (+${thisDist - dist1})`);
+        }
+      }
+      
+      // Checa também espelho absoluto se for diferente
+      const abs1 = getDist(history[0], history[1]);
+      const abs2 = getDist(history[1], history[2]);
+      if (abs1 > 0 && abs1 === abs2) {
+        const thisAbs = getDist(s.num, lastNum);
+        if (thisAbs === abs1 && getDirDist(s.num, lastNum) !== dist1) {
+          s.score += 4;
+          s.reasons.push(`Assinatura de Força Absoluta: ${abs1} casas`);
+        }
+      }
+    }
+
     // CAMADA 29: Neural-Markov Boost
     if (mkv && mkv.count > 1 && s.score > 30) {
       s.score += 15;
@@ -548,10 +706,10 @@ export function analyzeHistory(
   }
 
   // --- Hierarquia de Sinalização e Confiança ---
-  if (history.length < 15) {
-    confidence = Math.floor((history.length / 15) * 50);
+  if (history.length < 28) {
+    confidence = Math.floor((history.length / 28) * 50);
     playSignal = "red";
-    biasMessage = `FASE DE GERMINAÇÃO: COLETANDO DADOS (${history.length}/15)`;
+    biasMessage = `FASE DE GERMINAÇÃO: COLETANDO DADOS (${history.length}/28)`;
     targets = [];
     stats.omegaAlert = false;
     stats.omegaTarget = null;
@@ -610,6 +768,9 @@ export function analyzeHistory(
   }
 
   stats.biasDetected = best && best.score > 70;
+  if (stats.biasDetected) {
+    stats.biasTarget = best.num;
+  }
 
   // Pattern message
   if (stats.quebraAlert) stats.lastPattern = "ANTI-REPETIÇÃO BA";
@@ -694,8 +855,7 @@ export function analyzeHistory(
     }
   }
 
-  // --- 8. Expansão de Alvos Inteligente ---
-  // Apenas expandir com 1 vizinho se o alvo principal estiver sozinho
+  // --- 8. Expansão de Alvos Básica (1 vizinho) ---
   let primaryTargets = [...targets];
   if (stats.omegaAlert && stats.omegaTarget !== null) {
     primaryTargets.push(stats.omegaTarget);
@@ -708,19 +868,28 @@ export function analyzeHistory(
   }
 
   primaryTargets = Array.from(new Set(primaryTargets));
+  
   const expandedTargets = new Set<number>(primaryTargets);
-
   primaryTargets.forEach((num) => {
     const idx = ROULETTE_NUMBERS.indexOf(num);
-    const rightNeighbor = ROULETTE_NUMBERS[(idx + 1) % 37];
-    const leftNeighbor = ROULETTE_NUMBERS[(idx - 1 + 37) % 37];
+    const isThisOmega = stats.omegaAlert && stats.omegaTarget === num;
 
-    if (
-      !primaryTargets.includes(rightNeighbor) &&
-      !primaryTargets.includes(leftNeighbor)
-    ) {
-      expandedTargets.add(rightNeighbor);
-      expandedTargets.add(leftNeighbor);
+    // Se for Alvo Ômega (azul), ganha 3 vizinhos para cada lado
+    if (isThisOmega) {
+      for (let offset = 1; offset <= 3; offset++) {
+        expandedTargets.add(ROULETTE_NUMBERS[(idx + offset) % 37]);
+        expandedTargets.add(ROULETTE_NUMBERS[(idx - offset + 37) % 37]);
+      }
+    } else {
+      // Adiciona 1 vizinho de cada lado por padrão para os alvos normais
+      expandedTargets.add(ROULETTE_NUMBERS[(idx + 1) % 37]);
+      expandedTargets.add(ROULETTE_NUMBERS[(idx - 1 + 37) % 37]);
+      
+      // Se a bola for pequena, pula muito, então adiciona 2 vizinhos
+      if (ballSize === "small") {
+        expandedTargets.add(ROULETTE_NUMBERS[(idx + 2) % 37]);
+        expandedTargets.add(ROULETTE_NUMBERS[(idx - 2 + 37) % 37]);
+      }
     }
   });
 
@@ -742,18 +911,166 @@ export function analyzeHistory(
   };
 
   const finalTargets = new Set(targets);
+  let hasZeroGroup = false;
+  const zeroGroup = [0, 10, 20, 30];
+
   targets.forEach((num) => {
     if (directMirrors[num] !== undefined) {
       finalTargets.add(directMirrors[num]);
     }
+    if (zeroGroup.includes(num)) {
+      hasZeroGroup = true;
+    }
   });
+
+  if (hasZeroGroup) {
+    zeroGroup.forEach(z => finalTargets.add(z));
+  }
 
   targets = Array.from(finalTargets);
 
-  // --- Cálculo de Win/Loss e Entropia Global ---
-  if (!isRecursive && history.length >= 15) {
+  // --- NEW: Análises Detalhadas (Dúzias, Colunas, Cores e Assinatura) ---
+  if (!isRecursive && history.length > 0) {
+    // 1. Sleeping Dozens & Columns
+    const dozenSleep: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
+    const colSleep: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
+
+    [1, 2, 3].forEach((d) => {
+      const idx = history.findIndex(
+        (num) => num !== 0 && Math.ceil(num / 12) === d,
+      );
+      dozenSleep[d] = idx === -1 ? history.length : idx;
+    });
+    [1, 2, 3].forEach((c) => {
+      const idx = history.findIndex(
+        (num) => num !== 0 && ((num - 1) % 3) + 1 === c,
+      );
+      colSleep[c] = idx === -1 ? history.length : idx;
+    });
+
+    const topSleepDozen = Object.entries(dozenSleep).sort(
+      (a, b) => b[1] - a[1],
+    )[0];
+    const topSleepCol = Object.entries(colSleep).sort((a, b) => b[1] - a[1])[0];
+
+    if (topSleepDozen && topSleepDozen[1] > 6) {
+      stats.sleepingDozen = parseInt(topSleepDozen[0]);
+      stats.sleepingDozenCount = topSleepDozen[1];
+    }
+    if (topSleepCol && topSleepCol[1] > 6) {
+      stats.sleepingColumn = parseInt(topSleepCol[0]);
+      stats.sleepingColumnCount = topSleepCol[1];
+    }
+
+    // 2. Color Streak e Alternating Colors
+    let alternatingCount = 0;
+    if (history.length >= 2) {
+      for (let i = 0; i < history.length - 1; i++) {
+        const c1 = getNumberColor(history[i]);
+        const c2 = getNumberColor(history[i + 1]);
+        if (c1 !== "green" && c2 !== "green" && c1 !== c2) {
+          alternatingCount++;
+        } else {
+          break;
+        }
+      }
+    }
+    if (alternatingCount >= 3) {
+      stats.alternatingColorPattern = true;
+    }
+
+    let streakCount = 1;
+    const firstColor = getNumberColor(history[0]);
+    if (firstColor !== "green") {
+      for (let i = 1; i < history.length; i++) {
+        if (getNumberColor(history[i]) === firstColor) {
+          streakCount++;
+        } else {
+          break;
+        }
+      }
+    }
+    stats.colorStreak = streakCount;
+
+    // 3. Dealer Signature Cluster (Consistência no Arremesso)
+    if (history.length >= 4) {
+      const j1 = getDist(history[0], history[1]);
+      const j2 = getDist(history[1], history[2]);
+      const j3 = getDist(history[2], history[3]);
+      const avgJump = (j1 + j2 + j3) / 3;
+      const dev =
+        Math.abs(j1 - avgJump) +
+        Math.abs(j2 - avgJump) +
+        Math.abs(j3 - avgJump);
+      if (dev < 4 && avgJump > 0) {
+        const avgJumpRounded = Math.round(avgJump);
+        const lastIdx = getIdx(history[0]);
+        const targetLeft = ROULETTE_NUMBERS[(lastIdx - avgJumpRounded + 37) % 37];
+        const targetRight = ROULETTE_NUMBERS[(lastIdx + avgJumpRounded) % 37];
+        
+        stats.signatureClusterAlert = true;
+        stats.signatureClusterTarget = `LÂMINA A ${Math.round(avgJump)} CASAS (Alvos: ${targetLeft} e ${targetRight})`;
+      }
+    }
+    // 4. Padrão de Roubo / Sniper Gap
+    if (history.length > 5) {
+      const getVisualTargets = (tgts: number[]) => {
+        const visual = new Set<number>();
+        const m: Record<number, number> = { 12: 21, 21: 12, 13: 31, 31: 13, 23: 32, 32: 23, 16: 19, 19: 16, 6: 9, 9: 6 };
+        tgts.forEach((t) => {
+          const mirrors = m[t] !== undefined ? [t, m[t]] : [t];
+          mirrors.forEach((mNum) => {
+             const idx = getIdx(mNum);
+             visual.add(ROULETTE_NUMBERS[(idx - 1 + 37) % 37]);
+             visual.add(mNum);
+             visual.add(ROULETTE_NUMBERS[(idx + 1) % 37]);
+          });
+        });
+        return Array.from(visual);
+      };
+
+      const isRobbery = (hit: number, tgts: number[]) => {
+        const visualT = getVisualTargets(tgts);
+        if (visualT.includes(hit)) return false;
+        const hitIdx = getIdx(hit);
+        const leftTarget = ROULETTE_NUMBERS[(hitIdx - 1 + 37) % 37];
+        const rightTarget = ROULETTE_NUMBERS[(hitIdx + 1) % 37];
+        return visualT.includes(leftTarget) && visualT.includes(rightTarget); // Exatamente distância de 1 casa (acendido na roleta)
+      };
+
+      let robberyCount = 0;
+      for (let i = 0; i < Math.min(3, history.length - 2); i++) {
+        const pHist = history.slice(i + 1);
+        if (pHist.length > 4) {
+          const pAnalysis = analyzeHistory(pHist, true, ballSize);
+          if (isRobbery(history[i], pAnalysis.targets)) {
+            robberyCount++;
+          }
+        }
+      }
+
+      stats.robberyRecentCount = robberyCount;
+      if (robberyCount > 0) {
+        stats.robberyAlert = true;
+        const gaps: number[] = [];
+        ROULETTE_NUMBERS.forEach((num) => {
+          if (isRobbery(num, targets)) {
+            gaps.push(num);
+          }
+        });
+        stats.robberyGaps = gaps;
+        if (gaps.length > 0) {
+          gaps.forEach((g) => {
+            if (!targets.includes(g)) targets.push(g);
+          });
+        }
+      }
+    }
+  }
+  if (!isRecursive && history.length >= 28) {
     let winsCount = 0;
     let lossesCount = 0;
+    let hitSequence: boolean[] = [];
 
     // Evaluate last 10 rounds for win/loss
     const maxLookback = Math.min(10, history.length - 1);
@@ -761,11 +1078,13 @@ export function analyzeHistory(
       const resultNumber = history[i];
       const prevHistory = history.slice(i + 1);
       if (prevHistory.length > 5) {
-        const pastAnalysis = analyzeHistory(prevHistory, true);
+        const pastAnalysis = analyzeHistory(prevHistory, true, ballSize);
         const hit =
           pastAnalysis.targets.includes(resultNumber) ||
           pastAnalysis.stats.omegaTarget === resultNumber ||
           pastAnalysis.stats.quebraTarget === resultNumber;
+        
+        hitSequence.push(hit);
         if (hit) winsCount++;
         else lossesCount++;
       }
@@ -775,6 +1094,23 @@ export function analyzeHistory(
     stats.winRate = Math.round(winRate * 100);
     stats.winsCount = winsCount;
     stats.lossesCount = lossesCount;
+    
+    let isStealingPhase = false;
+    // Se o aplicativo errou os últimos 2 ou 3 giros, mas vinha de acertos antes
+    if (hitSequence.length >= 4) {
+       // Errou os últimos 2
+       if (!hitSequence[0] && !hitSequence[1]) {
+           // Checa se dos giros anteriores tinha pelo menos 2 acertos
+           const olderHits = hitSequence.slice(2).filter(h => h).length;
+           if (olderHits >= 1) { // Estava pagando e agora fez sequência de 2 buracos
+               isStealingPhase = true;
+           }
+       }
+       // Ou errou 3 seguidos garantido
+       if (!hitSequence[0] && !hitSequence[1] && !hitSequence[2]) {
+           isStealingPhase = true;
+       }
+    }
 
     // Calculate simple entropy based on distance spread
     let distanceChanges = 0;
@@ -798,27 +1134,31 @@ export function analyzeHistory(
       stats.crazyTable = true;
     }
 
-    // --- Sinergia com Mesa Maluca ---
-    if (stats.crazyTable) {
-      // Se há um sinal extremo balístico num cenário caótico
-      if (stats.omegaAlert || stats.quebraAlert) {
+    // --- Sinergia com Fase de Recolhimento e Mesa Maluca ---
+    if ((isStealingPhase || stats.crazyTable) && scores) {
+      stats.stealingPhaseAlert = true;
+      const hole = scores[scores.length - 1].num; // Pega o buraco mais profundo
+      
+      // Se tiver anomalia balística mesmo em fase ruim, confia no sinal verde
+      if (stats.crazyTable && (stats.omegaAlert || stats.quebraAlert)) {
         playSignal = "green";
         confidence = Math.max(confidence, 99);
-        biasMessage = "ANOMALIA BALÍSTICA NA MESA MALUCA (ALTA CONFIANÇA)";
+        biasMessage = "ANOMALIA BALÍSTICA NA FASE DE RECOLHIMENTO (ALTA CONFIANÇA)";
       } else {
-        playSignal = "red";
-        confidence = 0;
-        biasMessage =
-          "MESA MALUCA / ALTA ENTROPIA: NÃO JOGUE (BAIXA ASSERTIVIDADE)";
-        targets = []; // Evitar entradas aleatórias
+        stats.omegaAlert = true;
+        stats.omegaTarget = hole;
+        targets = [hole];
+        playSignal = "yellow";
+        confidence = 75;
+        biasMessage = "FASE DE RECOLHIMENTO (INVERSÃO ATIVADA NO BURACO MAIS PROFUNDO)";
       }
     }
   }
 
   // --- Lógica de Continuidade / "A Volta Sempre Paga" ---
   // Se não estamos em uma análise recursiva e já temos dados suficientes
-  if (!isRecursive && history.length > 15) {
-    const prevAnalysis = analyzeHistory(history.slice(1), true);
+  if (!isRecursive && history.length > 28) {
+    const prevAnalysis = analyzeHistory(history.slice(1), true, ballSize);
 
     // Lógicas de Sinal de win/loss da análise anterior
     if (

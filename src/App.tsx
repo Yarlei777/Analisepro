@@ -59,7 +59,7 @@ import {
   getNeighbors,
 } from "./constants";
 import { cn } from "./lib/utils";
-import { analyzeHistory } from "./analyzer";
+import { analyzeHistory, type BallSize } from "./analyzer";
 import { NumberScore } from "./analyzer_types";
 
 type Tab = "analysis" | "stats" | "history";
@@ -73,18 +73,33 @@ interface AlertNotification {
 const EMPTY_ARRAY: number[] = [];
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [history, setHistory] = useState<number[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('exu_do_ouro_auth') === 'true';
+  });
+  const [history, setHistory] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('exu_do_ouro_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('exu_do_ouro_history', JSON.stringify(history));
+  }, [history]);
+
   const [isVoltaCerta, setIsVoltaCerta] = useState(false);
   const [winStreak, setWinStreak] = useState(0);
+  const [lossStreak, setLossStreak] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
-  const [rotation, setRotation] = useState(0);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isNextRight, setIsNextRight] = useState(true);
   const [notifications, setNotifications] = useState<AlertNotification[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [casinoUrl, setCasinoUrl] = useState("");
   const [iframeUrl, setIframeUrl] = useState("");
+  const [ballSize, setBallSize] = useState<BallSize>("standard");
   const prevHistoryLength = React.useRef(0);
 
   const handleLaunchCasino = (input: string) => {
@@ -112,7 +127,7 @@ export default function App() {
   }, [activeTab]);
 
   // Brain Analysis
-  const analysis = useMemo(() => analyzeHistory(history), [history]);
+  const analysis = useMemo(() => analyzeHistory(history, false, ballSize), [history, ballSize]);
   const { targets, biasMessage, stats, confidence, playSignal } = analysis;
 
   // Manage transient notifications
@@ -127,7 +142,7 @@ export default function App() {
       const newNotifs: AlertNotification[] = [];
       const timestamp = Date.now();
 
-      const GERMINATION_PHASE = 15;
+      const GERMINATION_PHASE = 28;
       const isGerminated = history.length >= GERMINATION_PHASE;
 
       if (isGerminated) {
@@ -137,18 +152,6 @@ export default function App() {
             type: "terminal",
             message: `ALERTA DE REPETIÇÃO: TERMINAL ${stats.lastTerminalGroup}`,
           });
-        }
-
-        if (stats.vacuumAlerts.length > 0) {
-          // Find the strongest vacuum specifically matching the latest number or top one
-          const topVacuum = stats.vacuumAlerts[0];
-          if (topVacuum.gap >= 25) {
-            newNotifs.push({
-              id: `vac-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-              type: "vacuum",
-              message: `ALERTA DE VÁCUO: NÚMERO ${topVacuum.num} AGUARDADO (GAP: ${topVacuum.gap})`,
-            });
-          }
         }
 
         if ((stats as any).somaAlert && (stats as any).somaTargetSum !== null) {
@@ -288,30 +291,17 @@ export default function App() {
   const allHighlightedNumbers = useMemo(() => {
     const list = new Set<number>();
     ROULETTE_NUMBERS.forEach((num) => {
-      const isTarget = combinedTargets.some((t) => {
-        const mirrors = getMirrors(t);
-        return mirrors.some((m) => getNeighbors(m, 1).includes(num));
-      });
-      const isQuebra =
-        stats.quebraTarget !== null &&
-        getMirrors(stats.quebraTarget).includes(num);
-      const isBallistics =
-        ballistics.active &&
-        ballistics.targets.some((t) => getMirrors(t).includes(num));
-      const isVacuum = stats.vacuumAlerts.some((v) =>
-        getMirrors(v.num).includes(num),
-      );
-      const isSequence =
-        stats.sequenceTarget !== null &&
-        getMirrors(stats.sequenceTarget).includes(num);
+      const isTarget = combinedTargets.includes(num);
+      const isQuebra = stats.quebraTarget !== null && getNeighbors(stats.quebraTarget, 1).includes(num);
+      const isBallistics = ballistics.active && ballistics.targets.some((t) => getNeighbors(t, 1).includes(num));
+      const isVacuum = stats.vacuumAlerts.some((v) => getNeighbors(v.num, 1).includes(num));
+      const isSequence = stats.sequenceTarget !== null && getNeighbors(stats.sequenceTarget, 1).includes(num);
       const timeTarget = (stats as any).timeMirrorTarget;
-      const isTimeMirror =
-        timeTarget !== undefined &&
-        timeTarget !== null &&
-        getMirrors(timeTarget).includes(num);
-      const isOmega =
-        stats.omegaTarget !== null &&
-        getMirrors(stats.omegaTarget).includes(num);
+      const isTimeMirror = timeTarget !== undefined && timeTarget !== null && getNeighbors(timeTarget, 1).includes(num);
+      const somaTargetSum = (stats as any).somaTargetSum;
+      const isSomaTarget = (stats as any).somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
+      const isOmega = stats.omegaTarget !== null && getNeighbors(stats.omegaTarget, 1).includes(num);
+
       if (
         isTarget ||
         isQuebra ||
@@ -319,6 +309,7 @@ export default function App() {
         isVacuum ||
         isSequence ||
         isTimeMirror ||
+        isSomaTarget ||
         isOmega
       ) {
         list.add(num);
@@ -331,28 +322,40 @@ export default function App() {
     allHighlightedRef.current = allHighlightedNumbers;
   }, [allHighlightedNumbers]);
 
+  const dismissSignal = React.useCallback(() => {
+    setIsVoltaCerta(false);
+    setWinStreak(0);
+    setLossStreak(0);
+  }, []);
+
   const addNumber = React.useCallback((num: number) => {
     const active = allHighlightedRef.current;
     if (active.length > 0) {
       if (active.includes(num)) {
         setIsVoltaCerta(false);
+        setLossStreak(0);
         setWinStreak((s) => s + 1);
       } else {
-        setIsVoltaCerta(true);
         setWinStreak(0);
+        setLossStreak((prev) => {
+          const next = prev + 1;
+          if (next >= 2) {
+            setIsVoltaCerta(true);
+          }
+          return next;
+        });
       }
     } else {
       setIsVoltaCerta(false);
       setWinStreak(0);
+      setLossStreak(0);
     }
     setHistory((prev) => [num, ...prev].slice(0, 200));
-    setRotation((prev) => prev + 1440 + Math.random() * 360);
     setIsNextRight((prev) => !prev);
   }, []);
 
   const addNumbers = React.useCallback((nums: number[]) => {
     setHistory((prev) => [...nums, ...prev].slice(0, 200));
-    setRotation((prev) => prev + 1440 + Math.random() * 360);
     // If odd number of spins added, toggle direction
     if (nums.length % 2 !== 0) setIsNextRight((prev) => !prev);
   }, []);
@@ -361,6 +364,7 @@ export default function App() {
     setHistory([]);
     setIsVoltaCerta(false);
     setWinStreak(0);
+    setLossStreak(0);
     setShowClearConfirm(false);
   }, []);
 
@@ -369,15 +373,19 @@ export default function App() {
     setIsNextRight((prev) => !prev);
   }, []);
 
+  const dismissNotification = React.useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
   if (!isAuthenticated) {
     return <Login onLogin={() => setIsAuthenticated(true)} />;
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#050505] text-white font-sans antialiased">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#3b0870] via-[#240045] to-[#110022] text-white font-sans antialiased">
       {/* Main Viewport */}
       <main className="flex-1 relative p-2 md:p-4 pb-24">
-        <NotificationSystem notifications={notifications} />
+        <NotificationSystem notifications={notifications} onDismiss={dismissNotification} />
 
         <div className="flex items-center justify-between mb-4 relative z-10 px-2 md:px-0">
           <div className="flex items-center space-x-3">
@@ -418,6 +426,20 @@ export default function App() {
                 Protocolo V2.4
               </span>
             </div>
+
+            <button
+              onClick={() => setBallSize(prev => prev === 'standard' ? 'large' : prev === 'large' ? 'small' : 'standard')}
+              className="px-3 h-9 rounded-full glass-panel flex items-center justify-center border-gold/30 transition-all duration-300 cursor-pointer shadow-lg hover:bg-gold/10 hover:shadow-gold/10"
+              title="Ajustar Tamanho da Bola Física (15mm = Mais salto, 18mm = Padrão, 21mm = Mais inércia)"
+            >
+              <Disc className={cn("w-4 h-4 mr-1.5", ballSize === 'large' ? 'text-blue-400 scale-110' : ballSize === 'small' ? 'text-fuchsia-400 scale-90' : 'text-gold')} />
+              <span className="text-[10px] font-bold text-white/80 tracking-widest">
+                {ballSize === 'standard' && '18mm'}
+                {ballSize === 'large' && '21mm'}
+                {ballSize === 'small' && '15mm'}
+              </span>
+            </button>
+
             <button
               onClick={() => setIsMuted((prev) => !prev)}
               className={cn(
@@ -447,6 +469,19 @@ export default function App() {
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="flex flex-col items-center space-y-4"
             >
+              <div className="w-full flex justify-center mb-1">
+                <div className="glass-panel px-6 py-2 premium-border shadow-[0_0_20px_rgba(212,175,55,0.1)] inline-flex flex-col items-center">
+                  <span className="text-[9px] font-black text-gold/60 uppercase tracking-[0.2em] mb-0.5">
+                    Padrão Atual
+                  </span>
+                  <div className="flex flex-col items-center text-center">
+                    <span className="text-xl font-serif font-black italic gold-text tracking-[0.2em] uppercase leading-none mt-1">
+                      {stats.lastPattern || "---"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <PredictionBanner
                 confidence={confidence}
                 activeSector={stats.activeSector}
@@ -456,17 +491,6 @@ export default function App() {
               <VacuumTracker vacuumAlerts={stats.vacuumAlerts} />
 
               <AlertTracker stats={stats} />
-
-              <ManualControl
-                isNextRight={isNextRight}
-                setIsNextRight={setIsNextRight}
-                removeLast={removeLast}
-                resetHistory={resetHistory}
-                showClearConfirm={showClearConfirm}
-                setShowClearConfirm={setShowClearConfirm}
-                history={history}
-                addNumber={addNumber}
-              />
 
               <div className="relative group mt-3">
                 <div className="absolute -inset-4 bg-gold/10 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -486,46 +510,20 @@ export default function App() {
                   timeMirrorTarget={(stats as any).timeMirrorTarget}
                   somaAlert={(stats as any).somaAlert}
                   somaTargetSum={(stats as any).somaTargetSum}
+                  onDismissSignal={dismissSignal}
                 />
               </div>
 
-              <div className="w-full max-w-md glass-panel p-4 flex justify-around items-center premium-border relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-gold/5 via-transparent to-gold/5" />
-
-                <div className="text-center relative z-10">
-                  <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] block mb-2">
-                    Último Número
-                  </span>
-                  <div
-                    className={cn(
-                      "w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black border-2 shadow-2xl transition-all duration-500",
-                      history.length > 0
-                        ? getNumberColor(history[0]) === "red"
-                          ? "bg-red-600 border-red-400/40 shadow-red-900/40"
-                          : getNumberColor(history[0]) === "black"
-                            ? "bg-zinc-900 border-white/20 shadow-black/60"
-                            : "bg-emerald-600 border-emerald-400/40 shadow-emerald-900/40"
-                        : "bg-zinc-800 border-white/5",
-                    )}
-                  >
-                    {history[0] ?? "--"}
-                  </div>
-                </div>
-
-                <div className="h-12 w-[1px] bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-
-                <div className="text-center relative z-10">
-                  <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] block mb-2">
-                    Padrão Atual
-                  </span>
-                  <div className="flex flex-col items-center">
-                    <span className="text-xl font-serif font-black italic gold-text tracking-[0.2em] uppercase">
-                      {stats.lastPattern || "---"}
-                    </span>
-                    <div className="h-1 w-6 bg-gold/30 rounded-full mt-1" />
-                  </div>
-                </div>
-              </div>
+              <ManualControl
+                isNextRight={isNextRight}
+                setIsNextRight={setIsNextRight}
+                removeLast={removeLast}
+                resetHistory={resetHistory}
+                showClearConfirm={showClearConfirm}
+                setShowClearConfirm={setShowClearConfirm}
+                history={history}
+                addNumber={addNumber}
+              />
             </motion.div>
           )}
 

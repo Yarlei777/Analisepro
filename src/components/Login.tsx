@@ -15,6 +15,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === 'YarleiCosta') {
+      localStorage.setItem('exu_do_ouro_auth', 'true');
       onLogin();
     } else {
       setError(true);
