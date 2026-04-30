@@ -28,6 +28,7 @@ interface AlertTrackerProps {
     robberyAlert?: boolean;
     robberyRecentCount?: number;
     robberyGaps?: number[];
+    callsAlerts?: { called: number; count: number }[];
   };
 }
 
@@ -251,6 +252,21 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
             <TrendingUp className="w-4 h-4 animate-pulse" />
             <span className="tracking-[0.2em]">
               PADRÃO DE PING-PONG (Cores Alternadas) DETECTADO
+            </span>
+          </motion.div>
+        )}
+
+        {stats.callsAlerts && stats.callsAlerts.length > 0 && (
+          <motion.div
+            key="alert-calls"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="text-[10px] font-black text-indigo-400 bg-indigo-500/10 py-3 rounded-xl border border-indigo-500/20 flex items-center justify-center space-x-2"
+          >
+            <Zap className="w-4 h-4 animate-pulse" />
+            <span className="tracking-[0.2em]">
+              ALERTA DE CHAMADAS: {stats.callsAlerts.map(a => `${a.called} (${a.count}x)`).join(" | ")} PODE CHAMAR DE NOVO
             </span>
           </motion.div>
         )}

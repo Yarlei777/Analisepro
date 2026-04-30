@@ -102,7 +102,7 @@ export default function App() {
   const [ballSize, setBallSize] = useState<BallSize>("standard");
   const prevHistoryLength = React.useRef(0);
 
-  const handleLaunchCasino = (input: string) => {
+  const handleLaunchCasino = React.useCallback((input: string) => {
     if (!input.trim()) return;
     let finalUrl = input.trim();
 
@@ -119,7 +119,7 @@ export default function App() {
     }
 
     setIframeUrl(finalUrl);
-  };
+  }, [setIframeUrl]);
 
   // Smooth scroll to top on tab change
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function App() {
           newNotifs.push({
             id: `timeMirror-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
             type: "timeMirror",
-            message: `ESPELHO TEMPORAL (Repetição de ${seqStr}): JOGAR NO ${(stats as any).timeMirrorTarget} E VIZINHOS`,
+            message: `ESPELHO TEMPORAL (Repetição de ${seqStr}): JOGAR NO ${(stats as any).timeMirrorTarget}`,
           });
         }
 
@@ -204,6 +204,17 @@ export default function App() {
             message: `${stats.quebraReason}: ALVO NO ${stats.quebraTarget}`,
           });
         }
+      }
+
+      // Alertas de chamadas (independente de Germination Phase para ser mais reativo)
+      if ((stats as any).callsAlerts && (stats as any).callsAlerts.length > 0) {
+        (stats as any).callsAlerts.forEach((alert: any) => {
+          newNotifs.push({
+            id: `calls-${timestamp}-${alert.called}`,
+            type: "sequence",
+            message: `O número ${history[0]} já chamou o ${alert.called} ${alert.count} vezes no histórico! Pode buscar de novo.`,
+          });
+        });
       }
 
       if (newNotifs.length > 0) {
@@ -297,10 +308,11 @@ export default function App() {
       const isVacuum = stats.vacuumAlerts.some((v) => getNeighbors(v.num, 1).includes(num));
       const isSequence = stats.sequenceTarget !== null && getNeighbors(stats.sequenceTarget, 1).includes(num);
       const timeTarget = (stats as any).timeMirrorTarget;
-      const isTimeMirror = timeTarget !== undefined && timeTarget !== null && getNeighbors(timeTarget, 1).includes(num);
+      const isTimeMirror = timeTarget !== undefined && timeTarget !== null && num === timeTarget;
       const somaTargetSum = (stats as any).somaTargetSum;
       const isSomaTarget = (stats as any).somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
       const isOmega = stats.omegaTarget !== null && getNeighbors(stats.omegaTarget, 1).includes(num);
+      const isCallsAlert = (stats as any).callsAlerts && (stats as any).callsAlerts.some((c: any) => getNeighbors(c.called, 1).includes(num));
 
       if (
         isTarget ||
@@ -310,6 +322,7 @@ export default function App() {
         isSequence ||
         isTimeMirror ||
         isSomaTarget ||
+        isCallsAlert ||
         isOmega
       ) {
         list.add(num);
@@ -559,7 +572,26 @@ export default function App() {
             setCasinoUrl={setCasinoUrl}
             setIframeUrl={setIframeUrl}
             onLaunch={handleLaunchCasino}
-          />
+          >
+            <div className="absolute top-2 left-2 z-50 pointer-events-none origin-top-left scale-[0.3] sm:scale-[0.35] md:scale-[0.4] opacity-90 drop-shadow-2xl">
+              <RouletteWheel
+                targets={combinedTargets}
+                lastNumber={history[0]}
+                quebraTarget={stats.quebraTarget}
+                playSignal={playSignal}
+                isVoltaCerta={isVoltaCerta}
+                winStreak={winStreak}
+                ballisticsTargets={ballistics.targets}
+                omegaTarget={stats.omegaTarget}
+                vacuumAlerts={stats.vacuumAlerts}
+                sequenceTarget={stats.sequenceTarget}
+                timeMirrorTarget={(stats as any).timeMirrorTarget}
+                somaAlert={(stats as any).somaAlert}
+                somaTargetSum={(stats as any).somaTargetSum}
+                onDismissSignal={dismissSignal}
+              />
+            </div>
+          </IframeBrowser>
         </div>
       </main>
 

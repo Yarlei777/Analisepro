@@ -364,7 +364,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             const isBallistics = ballisticsTargets.some((t) => getNeighbors(t, 1).includes(num));
             const isVacuum = vacuumAlerts.some((v) => getNeighbors(v.num, 1).includes(num));
             const isSequence = sequenceTarget !== null && getNeighbors(sequenceTarget, 1).includes(num);
-            const isTimeMirror = timeMirrorTarget !== null && getNeighbors(timeMirrorTarget, 1).includes(num);
+            const isTimeMirror = timeMirrorTarget !== null && timeMirrorTarget === num;
             const isSomaTarget = somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
 
             const isOmega = omegaTarget !== null && getNeighbors(omegaTarget, 3).includes(num);

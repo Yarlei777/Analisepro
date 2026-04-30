@@ -35,6 +35,7 @@ export function analyzeHistory(
     somaTargetSum: null as number | null,
     mirrorAlert: false,
     mirrorTarget: null as number | null,
+    callsAlerts: [] as { called: number; count: number }[],
     lastPattern: "---" as string,
     biasDetected: false,
     biasTarget: null as number | null,
@@ -153,9 +154,9 @@ export function analyzeHistory(
       thirdNumberTarget = parseInt(seqSorted[0][0]);
     }
 
-    // --- Time Mirror (Espelho Temporal / Vizinhos) ---
+    // --- Time Mirror (Espelho Temporal Exato) ---
     for (let i = 2; i < history.length - 1; i++) {
-      if (getDist(history[i], n1) <= 1 && getDist(history[i + 1], n2) <= 1) {
+      if (history[i] === n1 && history[i + 1] === n2) {
         stats.timeMirrorAlert = true;
         stats.timeMirrorTarget = history[i - 1];
         stats.timeMirrorSeq = [history[i + 1], history[i]];
@@ -193,6 +194,26 @@ export function analyzeHistory(
       stats.somaAlert = true;
       stats.somaTargetSum = sum1;
     }
+  }
+
+  // --- 4.5 Análise de Chamadas (O número chamando outro) ---
+  if (history.length > 1) {
+    const current = history[0];
+    const callsCount: Record<number, number> = {};
+    // Verifica todas as vezes que o número atual apareceu e qual número veio DEPOIS (index - 1)
+    for (let i = 1; i < history.length - 1; i++) {
+        if (history[i] === current) {
+           const calledNumber = history[i - 1];
+           callsCount[calledNumber] = (callsCount[calledNumber] || 0) + 1;
+        }
+    }
+    const alerts: { called: number; count: number }[] = [];
+    Object.entries(callsCount).forEach(([calledStr, count]) => {
+         if (count >= 3) {
+             alerts.push({ called: parseInt(calledStr), count });
+         }
+    });
+    stats.callsAlerts = alerts;
   }
 
   // Terminals frequency
@@ -257,6 +278,13 @@ export function analyzeHistory(
       s.reasons.push(`Alerta de Soma (Soma ${stats.somaTargetSum})`);
     }
 
+    // CAMADA CHAMADAS: Números chamados pelo atual >= 3 vezes
+    const isCalledAlert = stats.callsAlerts.find((c) => c.called === s.num);
+    if (isCalledAlert) {
+      s.score += 25; // Alta pontuação para chamadas > 3 vezes
+      s.reasons.push(`Chamada Frequente (${lastNum} chamou ${s.num} ${isCalledAlert.count}x)`);
+    }
+
     // CAMADA 3: Calor e Momentum (Heatmap)
     const heat = history.slice(0, 15).filter((n) => n === s.num).length;
     if (heat > 1) {
@@ -294,7 +322,7 @@ export function analyzeHistory(
     if (
       stats.timeMirrorAlert &&
       stats.timeMirrorTarget !== null &&
-      getDist(stats.timeMirrorTarget, s.num) <= 1
+      stats.timeMirrorTarget === s.num
     ) {
       s.score += 25;
       s.reasons.push("Espelho Temporal do Histórico");

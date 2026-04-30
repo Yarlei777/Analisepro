@@ -10,13 +10,23 @@ interface IframeBrowserProps {
   onLaunch: (input: string) => void;
 }
 
+const MemoizedIframe = React.memo(({ iframeUrl }: { iframeUrl: string }) => (
+  <iframe 
+    src={iframeUrl} 
+    className="absolute inset-0 w-full h-full border-none shadow-2xl"
+    title="Casino View"
+    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+  />
+));
+
 export const IframeBrowser = React.memo(({ 
   iframeUrl, 
   casinoUrl, 
   setCasinoUrl, 
   setIframeUrl, 
-  onLaunch 
-}: IframeBrowserProps) => {
+  onLaunch,
+  children
+}: IframeBrowserProps & { children?: React.ReactNode }) => {
   return (
     <>
       {/* Casino Access */}
@@ -75,15 +85,11 @@ export const IframeBrowser = React.memo(({
             </div>
           </div>
           <div className="flex-1 w-full bg-white relative">
-            <iframe 
-              src={iframeUrl} 
-              className="absolute inset-0 w-full h-full border-none shadow-2xl"
-              title="Casino View"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-            />
+            <MemoizedIframe iframeUrl={iframeUrl} />
             {/* Minimal overlays for a more "integrated" feel */}
             <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent pointer-events-none" />
             <div className="absolute inset-y-0 right-0 w-2 bg-gradient-to-l from-black/10 to-transparent pointer-events-none" />
+            {children}
           </div>
         </motion.div>
       )}
