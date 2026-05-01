@@ -87,4 +87,6 @@ export const AI_LAYERS = [
   { id: 35, name: "Atratores de Caos", type: "neural" },
   { id: 36, name: "Atração Magnética", type: "omega" },
   { id: 37, name: "Distance Mirror", type: "neural" },
+  { id: 38, name: "Padrão de Duplo", type: "standard" },
+  { id: 39, name: "Sequência Ocorrência", type: "omega" },
 ];

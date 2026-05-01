@@ -180,12 +180,16 @@ export default function App() {
 
         if (stats.timeMirrorAlert && (stats as any).timeMirrorTarget !== null) {
           const seqStr = (stats as any).timeMirrorSeq
-            ? (stats as any).timeMirrorSeq.join(" e ")
+            ? (stats as any).timeMirrorSeq.join(", ")
             : "";
+          const len = (stats as any).timeMirrorLen;
+          const type = (stats as any).timeMirrorType;
+          const target = (stats as any).timeMirrorTarget;
+          const neighbors = getNeighbors(target, 2).join(", ");
           newNotifs.push({
             id: `timeMirror-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
             type: "timeMirror",
-            message: `ESPELHO TEMPORAL (Repetição de ${seqStr}): JOGAR NO ${(stats as any).timeMirrorTarget}`,
+            message: `ESPELHO HISTÓRICO: Padrão de ${len} números (${type}: ${seqStr}) se repetiu. JOGAR NO: ${target} (Cobrindo vizinhos: ${neighbors})`,
           });
         }
 
@@ -194,6 +198,47 @@ export default function App() {
             id: `zone-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
             type: "zone",
             message: `VIÉS DE ZONA EM: ${(stats as any).zoneBiasTarget.toUpperCase()}`,
+          });
+        }
+
+        if ((stats as any).zonaFaltaAlert) {
+          const isSuper = (stats as any).zonaFaltaSuper;
+          const targets = (stats as any).zonaFaltaTargets;
+          newNotifs.push({
+            id: `zonaFalta-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+            type: "zonaFalta",
+            message: isSuper 
+              ? `🔥 SUPER CONFLUÊNCIA! Coluna e Dúzia em falta. ROXO FORTE nos alvos da interseção: ${targets.join(", ")}!`
+              : `⚠️ ZONA EM FALTA: Atrasos longos ou repetição nas colunas/dúzias. Alvos marcados em roxo.`,
+          });
+        }
+
+        if ((stats as any).doublePatternAlert && (stats as any).doublePatternTargets && (stats as any).doublePatternTargets.length > 0) {
+          const targetsStr = (stats as any).doublePatternTargets.join(" e ");
+          newNotifs.push({
+            id: `double-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+            type: "sequence",
+            message: `PADRÃO DE DUPLO RECENTE ALVO: ${targetsStr}`,
+          });
+        }
+
+        if ((stats as any).streakAlert && (stats as any).streakTargets && (stats as any).streakTargets.length > 0) {
+          const len = (stats as any).streakLength;
+          const type = (stats as any).streakType;
+          const targets = (stats as any).streakTargets;
+          let targetsStr = targets.join(", ");
+          if (type === "VIZINHOS" && targets.length > 0) {
+            targetsStr = `Região do ${targets[Math.floor(targets.length/2)]} (${targets.join(", ")})`;
+          }
+          
+          const msg = len >= 4 
+            ? `🔥 ALTA CHANCE (4+ de ${type}): Sequência engatada. JOGAR EM: ${targetsStr}` 
+            : `⚠️ AVISO (3 de ${type}): Padrão se formando. POSSÍVEL ALVO: ${targetsStr}`;
+            
+          newNotifs.push({
+            id: `streak-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+            type: "sequence",
+            message: msg,
           });
         }
 
@@ -308,9 +353,13 @@ export default function App() {
       const isVacuum = stats.vacuumAlerts.some((v) => getNeighbors(v.num, 1).includes(num));
       const isSequence = stats.sequenceTarget !== null && getNeighbors(stats.sequenceTarget, 1).includes(num);
       const timeTarget = (stats as any).timeMirrorTarget;
-      const isTimeMirror = timeTarget !== undefined && timeTarget !== null && num === timeTarget;
+      const isTimeMirror = timeTarget !== undefined && timeTarget !== null && getNeighbors(timeTarget, 2).includes(num);
       const somaTargetSum = (stats as any).somaTargetSum;
       const isSomaTarget = (stats as any).somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
+      const doubleTargets = (stats as any).doublePatternTargets || [];
+      const isDoublePattern = doubleTargets.some((t: number) => getNeighbors(t, 1).includes(num));
+      const streakTargets = (stats as any).streakTargets || [];
+      const isStreak = streakTargets.some((t: number) => getNeighbors(t, 1).includes(num));
       const isOmega = stats.omegaTarget !== null && getNeighbors(stats.omegaTarget, 1).includes(num);
       const isCallsAlert = (stats as any).callsAlerts && (stats as any).callsAlerts.some((c: any) => getNeighbors(c.called, 1).includes(num));
 
@@ -322,6 +371,8 @@ export default function App() {
         isSequence ||
         isTimeMirror ||
         isSomaTarget ||
+        isDoublePattern ||
+        isStreak ||
         isCallsAlert ||
         isOmega
       ) {
@@ -523,6 +574,10 @@ export default function App() {
                   timeMirrorTarget={(stats as any).timeMirrorTarget}
                   somaAlert={(stats as any).somaAlert}
                   somaTargetSum={(stats as any).somaTargetSum}
+                  doublePatternTargets={(stats as any).doublePatternTargets || []}
+                  streakTargets={(stats as any).streakTargets || []}
+                  zonaFaltaTargets={(stats as any).zonaFaltaTargets || []}
+                  zonaFaltaSuper={(stats as any).zonaFaltaSuper || false}
                   onDismissSignal={dismissSignal}
                 />
               </div>
@@ -588,6 +643,10 @@ export default function App() {
                 timeMirrorTarget={(stats as any).timeMirrorTarget}
                 somaAlert={(stats as any).somaAlert}
                 somaTargetSum={(stats as any).somaTargetSum}
+                doublePatternTargets={(stats as any).doublePatternTargets || []}
+                streakTargets={(stats as any).streakTargets || []}
+                zonaFaltaTargets={(stats as any).zonaFaltaTargets || []}
+                zonaFaltaSuper={(stats as any).zonaFaltaSuper || false}
                 onDismissSignal={dismissSignal}
               />
             </div>

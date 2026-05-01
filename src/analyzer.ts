@@ -1,5 +1,5 @@
 import { NumberScore } from "./analyzer_types";
-import { ROULETTE_NUMBERS, getNumberColor } from "./constants";
+import { ROULETTE_NUMBERS, getNumberColor, getNeighbors } from "./constants";
 
 export type BallSize = "standard" | "large" | "small";
 
@@ -24,6 +24,9 @@ export function analyzeHistory(
     terminalFrequency: {} as Record<string, number>,
     hotNumbers: [] as any[],
     vacuumAlerts: [] as { num: number; gap: number }[],
+    zonaFaltaAlert: false,
+    zonaFaltaTargets: [] as number[],
+    zonaFaltaSuper: false,
     omegaAlert: false,
     omegaTarget: null as number | null,
     sequenceAlert: false,
@@ -31,8 +34,16 @@ export function analyzeHistory(
     timeMirrorAlert: false,
     timeMirrorTarget: null as number | null,
     timeMirrorSeq: [] as number[],
+    timeMirrorType: "" as string,
+    timeMirrorLen: 0,
     somaAlert: false,
     somaTargetSum: null as number | null,
+    doublePatternAlert: false,
+    doublePatternTargets: [] as number[],
+    streakAlert: false,
+    streakTargets: [] as number[],
+    streakLength: 0,
+    streakType: "" as string,
     mirrorAlert: false,
     mirrorTarget: null as number | null,
     callsAlerts: [] as { called: number; count: number }[],
@@ -154,14 +165,188 @@ export function analyzeHistory(
       thirdNumberTarget = parseInt(seqSorted[0][0]);
     }
 
-    // --- Time Mirror (Espelho Temporal Exato) ---
-    for (let i = 2; i < history.length - 1; i++) {
-      if (history[i] === n1 && history[i + 1] === n2) {
-        stats.timeMirrorAlert = true;
-        stats.timeMirrorTarget = history[i - 1];
-        stats.timeMirrorSeq = [history[i + 1], history[i]];
-        break; // Match mais recente ganha
+    // --- Time Mirror (Espelho Temporal Histórico) ---
+    let timeMirrorFound = false;
+    if (history.length >= 40) {
+      for (let len = 4; len >= 3; len--) {
+        if (history.length < len * 2 + 1) continue;
+
+        const currentSeq = history.slice(0, len);
+        
+        for (let i = len; i <= history.length - len - 1; i++) {
+          let isExact = true;
+          for (let j = 0; j < len; j++) {
+             if (history[i + j] !== currentSeq[j]) {
+               isExact = false; break;
+             }
+          }
+          
+          let isNeighbor = true;
+          for (let j = 0; j < len; j++) {
+             if (getDist(history[i + j], currentSeq[j]) > 1) {
+               isNeighbor = false; break;
+             }
+          }
+          
+          if (isExact || isNeighbor) {
+            stats.timeMirrorAlert = true;
+            stats.timeMirrorTarget = history[i - 1]; 
+            stats.timeMirrorSeq = currentSeq.slice().reverse(); 
+            stats.timeMirrorType = isExact ? "EXATO" : "VIZINHOS"; 
+            stats.timeMirrorLen = len;
+            timeMirrorFound = true;
+            break;
+          }
+        }
+        if (timeMirrorFound) break;
       }
+    }
+
+    // --- Padrão de Duplos (Double Repeater) ---
+    if (history.length >= 4 && history[0] === history[1]) {
+      for (let i = 2; i < history.length - 1; i++) {
+        if (history[i] === history[i + 1]) {
+          const pastDouble = history[i];
+          const pastOutcome = history[i - 1];
+          const currentDouble = history[0];
+          
+          let numericDelta = pastOutcome - pastDouble;
+          let target1 = currentDouble + numericDelta;
+          if (target1 > 36) target1 -= 37;
+          if (target1 < 0) target1 += 37;
+          
+          const idxPastDouble = ROULETTE_NUMBERS.indexOf(pastDouble);
+          const idxPastOutcome = ROULETTE_NUMBERS.indexOf(pastOutcome);
+          let wheelDelta = idxPastOutcome - idxPastDouble;
+          
+          const idxCurrentDouble = ROULETTE_NUMBERS.indexOf(currentDouble);
+          let target2Idx = idxCurrentDouble + wheelDelta;
+          if (target2Idx > 36) target2Idx -= 37;
+          if (target2Idx < 0) target2Idx += 37;
+          const target2 = ROULETTE_NUMBERS[target2Idx];
+          
+          stats.doublePatternAlert = true;
+          // Target 1: Padrão Numérico Exato (+ / -)
+          // Target 2: Padrão na Roda Distância Angular
+          stats.doublePatternTargets = Array.from(new Set([target1, target2]));
+          break;
+        }
+      }
+    }
+
+    // --- Sequências Repetitivas (Streak Analysis) ---
+    if (history.length >= 3) {
+      const len4 = history.length >= 4;
+
+      const exato4 = len4 && history[0] === history[1] && history[1] === history[2] && history[2] === history[3];
+      const exato3 = history[0] === history[1] && history[1] === history[2];
+
+      const t0 = history[0] % 10;
+      const t1 = history[1] % 10;
+      const t2 = history[2] % 10;
+      const t3 = len4 ? history[3] % 10 : null;
+      const terminal4 = len4 && t0 === t1 && t1 === t2 && t2 === t3;
+      const terminal3 = t0 === t1 && t1 === t2;
+
+      const getWheelDist = (a: number, b: number) => {
+        const idxA = ROULETTE_NUMBERS.indexOf(a);
+        const idxB = ROULETTE_NUMBERS.indexOf(b);
+        if (idxA === -1 || idxB === -1) return 0;
+        let dist = Math.abs(idxA - idxB);
+        if (dist > 18) dist = 37 - dist;
+        return dist;
+      };
+
+      const vizinhos4 = len4 && getWheelDist(history[0], history[1]) <= 2 && getWheelDist(history[1], history[2]) <= 2 && getWheelDist(history[2], history[3]) <= 2;
+      const vizinhos3 = getWheelDist(history[0], history[1]) <= 2 && getWheelDist(history[1], history[2]) <= 2;
+
+      if (exato4 || exato3) {
+        stats.streakAlert = true;
+        stats.streakLength = exato4 ? 4 : 3;
+        stats.streakType = "EXATO";
+        stats.streakTargets = [history[0]];
+      } else if (terminal4 || terminal3) {
+        stats.streakAlert = true;
+        stats.streakLength = terminal4 ? 4 : 3;
+        stats.streakType = "TERMINAL";
+        stats.streakTargets = ROULETTE_NUMBERS.filter(n => n % 10 === t0);
+      } else if (vizinhos4 || vizinhos3) {
+        stats.streakAlert = true;
+        stats.streakLength = vizinhos4 ? 4 : 3;
+        stats.streakType = "VIZINHOS";
+        stats.streakTargets = getNeighbors(history[0], 2);
+      }
+    }
+
+    // --- Zonas em Falta (Gaps em Dúzias e Colunas) ---
+    const getDozen = (n: number) => n === 0 ? 0 : n <= 12 ? 1 : n <= 24 ? 2 : 3;
+    const getColumn = (n: number) => n === 0 ? 0 : (n % 3 === 0 ? 3 : n % 3);
+
+    const checkGap = (condition: (n: number) => boolean) => {
+      let gap = 0;
+      const allGaps = [];
+      for (let i = 0; i < history.length; i++) {
+        if (condition(history[i])) {
+          allGaps.push(gap);
+          gap = 0;
+        } else {
+          gap++;
+        }
+      }
+      if (allGaps.length === 0) return { currentGap: gap, pastGaps: [] };
+      return { currentGap: allGaps[0], pastGaps: allGaps.slice(1) };
+    };
+
+    const faltasDozens: number[] = [];
+    // Check Dozens
+    for (let d = 1; d <= 3; d++) {
+      const { currentGap, pastGaps } = checkGap(n => getDozen(n) === d);
+      let isFalta = false;
+      if (currentGap >= 7) isFalta = true; 
+      if (currentGap >= 5 && pastGaps.length > 0 && pastGaps[0] === currentGap) isFalta = true; 
+      if (currentGap > 0 && pastGaps.length > 1 && pastGaps[0] === pastGaps[1] && currentGap === pastGaps[0]) isFalta = true;
+
+      if (isFalta) {
+        faltasDozens.push(d);
+      }
+    }
+
+    const faltasColumns: number[] = [];
+    // Check Columns
+    for (let c = 1; c <= 3; c++) {
+      const { currentGap, pastGaps } = checkGap(n => getColumn(n) === c);
+      let isFalta = false;
+      if (currentGap >= 7) isFalta = true; 
+      if (currentGap >= 5 && pastGaps.length > 0 && pastGaps[0] === currentGap) isFalta = true; 
+      if (currentGap > 0 && pastGaps.length > 1 && pastGaps[0] === pastGaps[1] && currentGap === pastGaps[0]) isFalta = true;
+
+      if (isFalta) {
+        faltasColumns.push(c);
+      }
+    }
+
+    const faltas: number[] = [];
+    let isSuperConfluencia = false;
+
+    if (faltasDozens.length > 0 && faltasColumns.length > 0) {
+      isSuperConfluencia = true;
+      ROULETTE_NUMBERS.forEach(n => {
+        if (n !== 0 && faltasDozens.includes(getDozen(n)) && faltasColumns.includes(getColumn(n))) {
+          faltas.push(n);
+        }
+      });
+    } else {
+      ROULETTE_NUMBERS.forEach(n => {
+        if (n !== 0 && (faltasDozens.includes(getDozen(n)) || faltasColumns.includes(getColumn(n)))) {
+          faltas.push(n);
+        }
+      });
+    }
+
+    if (faltas.length > 0) {
+      stats.zonaFaltaAlert = true;
+      stats.zonaFaltaTargets = Array.from(new Set(faltas));
+      stats.zonaFaltaSuper = isSuperConfluencia;
     }
   }
 
@@ -696,6 +881,30 @@ export function analyzeHistory(
       }
     }
 
+    // CAMADA 38: Padrão de Duplos (Double Repeater)
+    if (stats.doublePatternAlert && stats.doublePatternTargets.includes(s.num)) {
+      s.score += 25; // Alta relevância
+      s.reasons.push("Padrão de Duplo Recente");
+    }
+
+    // CAMADA 39: Sequência de Mesma Natureza (Streak Analysis)
+    if (stats.streakAlert && stats.streakTargets.includes(s.num)) {
+      const isExato = stats.streakLength >= 4;
+      s.score += isExato ? 40 : 20; // 4 é exato e dá muita confiança
+      s.reasons.push(isExato ? `Confirmação EXATA (Tamanho 4) - Tipo: ${stats.streakType}` : `Aviso de Sequência (Tamanho 3) - Tipo: ${stats.streakType}`);
+    }
+
+    // CAMADA 40: Zonas em Falta
+    if (stats.zonaFaltaAlert && stats.zonaFaltaTargets.includes(s.num)) {
+      if (stats.zonaFaltaSuper) {
+        s.score += 50; // Super Confluência
+        s.reasons.push("SUPER CONFLUÊNCIA: ZONA EM FALTA (Dúzia + Coluna)");
+      } else {
+        s.score += 20;
+        s.reasons.push("Confluência Especial: Zona em Falta");
+      }
+    }
+
     // CAMADA 29: Neural-Markov Boost
     if (mkv && mkv.count > 1 && s.score > 30) {
       s.score += 15;
@@ -745,6 +954,8 @@ export function analyzeHistory(
     stats.sequenceTarget = null;
     stats.quebraAlert = false;
     stats.quebraTarget = null;
+    stats.zonaFaltaAlert = false;
+    stats.zonaFaltaTargets = [];
     stats.zoneBiasAlert = false;
     stats.zoneBiasTarget = "";
   } else {

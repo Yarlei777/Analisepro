@@ -22,6 +22,10 @@ interface RouletteWheelProps {
   timeMirrorTarget?: number | null;
   somaAlert?: boolean;
   somaTargetSum?: number | null;
+  doublePatternTargets?: number[];
+  streakTargets?: number[];
+  zonaFaltaTargets?: number[];
+  zonaFaltaSuper?: boolean;
   onDismissSignal?: () => void;
 }
 
@@ -40,6 +44,10 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
     timeMirrorTarget = null,
     somaAlert = false,
     somaTargetSum = null,
+    doublePatternTargets = [],
+    streakTargets = [],
+    zonaFaltaTargets = [],
+    zonaFaltaSuper = false,
     onDismissSignal,
   }) => {
     // Racetrack geometry constants
@@ -223,6 +231,14 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+
+            <filter id="glowPurple">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           {/* Inner track realistic casino felt background */}
@@ -364,8 +380,10 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             const isBallistics = ballisticsTargets.some((t) => getNeighbors(t, 1).includes(num));
             const isVacuum = vacuumAlerts.some((v) => getNeighbors(v.num, 1).includes(num));
             const isSequence = sequenceTarget !== null && getNeighbors(sequenceTarget, 1).includes(num);
-            const isTimeMirror = timeMirrorTarget !== null && timeMirrorTarget === num;
+            const isTimeMirror = timeMirrorTarget !== null && getNeighbors(timeMirrorTarget, 2).includes(num);
             const isSomaTarget = somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
+            const isDoublePattern = doublePatternTargets.some((t) => getNeighbors(t, 1).includes(num));
+            const isStreak = streakTargets.some((t) => getNeighbors(t, 1).includes(num));
 
             const isOmega = omegaTarget !== null && getNeighbors(omegaTarget, 3).includes(num);
             const isLast = lastNumber === num;
@@ -379,13 +397,36 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               isSequence ||
               isTimeMirror ||
               isSomaTarget ||
+              isDoublePattern ||
+              isStreak ||
               isLast ||
               isLastNeighbor;
 
+            // Se for super confluência, ilumina tudo do alvo (que são apenas a intersecção)
+            // Se for apenas uma dúzia ou coluna, ilumina de roxo apenos os alvos que já acenderiam por outras análises
+            const isZonaFaltaFocus = zonaFaltaSuper 
+              ? zonaFaltaTargets.includes(num)
+              : (isAnyYellowTarget && zonaFaltaTargets.includes(num));
+
             return (
               <g key={`text-${num}`}>
+                {/* Zonas em Falta Override Highlight */}
+                {isZonaFaltaFocus && (
+                  <g filter="url(#glowPurple)">
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="16"
+                      fill="rgba(168, 85, 247, 0.4)"
+                      stroke="#a855f7"
+                      strokeWidth="3"
+                      className="pointer-events-none"
+                    />
+                  </g>
+                )}
+
                 {/* Last Result Highlight (Subtle) */}
-                {isLast && (
+                {isLast && !isZonaFaltaFocus && (
                   <circle
                     cx={x}
                     cy={y}
@@ -398,7 +439,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                 )}
 
                 {/* Omega Highlight (Softer Blue) */}
-                {isOmega && (
+                {isOmega && !isZonaFaltaFocus && (
                   <g filter="url(#glowGreen)">
                     <circle
                       cx={x}
@@ -413,7 +454,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                 )}
 
                 {/* Orange Highlight for Quebra/Robbery */}
-                {isQuebra && !isOmega && (
+                {isQuebra && !isOmega && !isZonaFaltaFocus && (
                   <g filter="url(#glowYellow)">
                     <circle
                       cx={x}
@@ -428,7 +469,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                 )}
 
                 {/* General Target Highlight with Neon Green Glow */}
-                {isAnyYellowTarget && !isOmega && !isQuebra && (
+                {isAnyYellowTarget && !isOmega && !isQuebra && !isZonaFaltaFocus && (
                   <g filter="url(#glowYellow)">
                     <circle
                       cx={x}
@@ -447,20 +488,22 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                   x={x}
                   y={y}
                   fill="white"
-                  fontSize={isOmega ? "19" : isQuebra ? "16" : isAnyYellowTarget ? "16" : "13"}
+                  fontSize={isZonaFaltaFocus ? "19" : isOmega ? "19" : isQuebra ? "16" : isAnyYellowTarget ? "16" : "13"}
                   fontWeight="900"
                   fontFamily="Inter, sans-serif"
                   textAnchor="middle"
                   alignmentBaseline="central"
                   className={cn(
                     "pointer-events-none transition-all duration-300",
-                    isOmega
-                      ? "fill-sky-300 drop-shadow-[0_0_8px_rgba(125,211,252,0.8)]"
-                      : isQuebra
-                        ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
-                        : isAnyYellowTarget
-                          ? "fill-yellow-400 brightness-150 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]"
-                          : "opacity-90 font-extrabold",
+                    isZonaFaltaFocus
+                      ? "fill-purple-300 drop-shadow-[0_0_12px_rgba(168,85,247,1)]"
+                      : isOmega
+                        ? "fill-sky-300 drop-shadow-[0_0_8px_rgba(125,211,252,0.8)]"
+                        : isQuebra
+                          ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
+                          : isAnyYellowTarget
+                            ? "fill-yellow-400 brightness-150 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]"
+                            : "opacity-90 font-extrabold",
                   )}
                 >
                   {num}
