@@ -22,6 +22,7 @@ import {
   Search,
   ExternalLink,
   Globe,
+  Crown,
 } from "lucide-react";
 import { RouletteWheel } from "./components/RouletteWheel";
 import { HistoryView } from "./components/HistoryView";
@@ -32,7 +33,6 @@ import { NotificationSystem } from "./components/NotificationSystem";
 import { NeuralArchitecture } from "./components/NeuralArchitecture";
 import { DetailedStats } from "./components/DetailedStats";
 import { PredictionBanner } from "./components/PredictionBanner";
-import { VacuumTracker } from "./components/VacuumTracker";
 import { AlertTracker } from "./components/AlertTracker";
 import { ManualControl } from "./components/ManualControl";
 import { Login } from "./components/Login";
@@ -95,12 +95,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isNextRight, setIsNextRight] = useState(true);
-  const [notifications, setNotifications] = useState<AlertNotification[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [notifications, setNotifications] = useState<AlertNotification[]>([]);
   const [casinoUrl, setCasinoUrl] = useState("");
   const [iframeUrl, setIframeUrl] = useState("");
   const [ballSize, setBallSize] = useState<BallSize>("standard");
   const prevHistoryLength = React.useRef(0);
+  const prevWinStreakRef = React.useRef(0);
+
+  const dismissNotification = React.useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   const handleLaunchCasino = React.useCallback((input: string) => {
     if (!input.trim()) return;
@@ -130,151 +135,141 @@ export default function App() {
   const analysis = useMemo(() => analyzeHistory(history, false, ballSize), [history, ballSize]);
   const { targets, biasMessage, stats, confidence, playSignal } = analysis;
 
-  // Manage transient notifications
-  useEffect(() => {
-    if (isMuted) {
-      if (notifications.length > 0) setNotifications([]);
-      prevHistoryLength.current = history.length;
-      return;
+  // Componentize static alerts derived straight from stats
+  const activeAlerts = useMemo(() => {
+    const alerts: { id: string; type: string; message: string }[] = [];
+    if (history.length < 28) return alerts; // Germination phase check
+
+    if ((stats as any).vacuumAlerts && (stats as any).vacuumAlerts.length > 0) {
+      alerts.push({
+        id: 'vacuum', type: 'vacuum',
+        message: `ALERTA DE VÁCUO: Buracos detectados! Jogar nos vizinhos de: ${(stats as any).vacuumAlerts.map((v: any) => v.num).join(", ")}`
+      });
+    }
+    if ((stats as any).stealingPhaseAlert) {
+      alerts.push({
+        id: 'steal', type: 'vacuum',
+        message: `⚠️ FASE DE RECOLHIMENTO ATIVA: O algoritmo detectou possível compensação. ALVO: ${(stats as any).stealingTarget ?? "---"} E VIZINHOS`
+      });
+    }
+    const targetMap = new Map<number, { id: string, name: string, defaultMessage: string, type: string }[]>();
+    
+    // Helper to add to map
+    const addSignal = (target: number | null | undefined, id: string, type: string, name: string, defaultMessage: string) => {
+      if (target !== null && target !== undefined) {
+        if (!targetMap.has(target)) targetMap.set(target, []);
+        targetMap.get(target)!.push({ id, type, name, defaultMessage });
+      }
+    };
+
+    if (stats.omegaAlert) {
+      addSignal(stats.omegaTarget, 'omega', 'omega', 'Sinal Ômega', `CONVERGÊNCIA ÔMEGA DETECTADA: JOGAR NO ${stats.omegaTarget}`);
+    }
+    if (stats.sequenceAlert) {
+      addSignal(stats.sequenceTarget, 'seq', 'sequence', 'Padrão Histórico', `PADRÃO HISTÓRICO: O PRÓXIMO PODE SER ${stats.sequenceTarget}`);
+    }
+    if ((stats as any).mirrorAlert) {
+      addSignal((stats as any).mirrorTarget, 'mirror', 'sequence', 'Espelho Magnético', `🪞 ESPELHO MAGNÉTICO: Jogue no alvo ${(stats as any).mirrorTarget} e vizinhos.`);
+    }
+    if ((stats as any).sandwichAlert) {
+      addSignal((stats as any).sandwichTarget, 'sandwich', 'sequence', 'Sanduíche Curto', `🥪 SANDUÍCHE CURTO ("Vai e Volta"): O alvo do meio é ${(stats as any).sandwichTarget}. Jogue nele!`);
+    }
+    if ((stats as any).twinRepeatAlert) {
+      addSignal((stats as any).twinRepeatTarget, 'twinrepeat', 'sequence', 'Dobradinha', `👯 DOBRADINHA: Número viciado ${(stats as any).twinRepeatTarget} detetado, proteja ou repita!`);
+    }
+    if (stats.biasDetected && stats.biasTarget !== null) {
+      addSignal(stats.biasTarget, 'bias', 'omega', 'Viés Estatístico', `VIÉS ESTATÍSTICO: Mesa com tendência ao número ${stats.biasTarget}`);
     }
 
+    // Process single-target grouping
+    targetMap.forEach((signals, targetNum) => {
+      if (signals.length >= 2) {
+        // Group them!
+        const signalNames = signals.map(s => s.name).join(", ");
+        alerts.push({
+          id: `grouped-${targetNum}`,
+          type: 'omega',
+          message: `🔥 MÚLTIPLAS ANÁLISES PARA O ${targetNum} (${signalNames})`
+        });
+      } else {
+        alerts.push({
+          id: signals[0].id,
+          type: signals[0].type,
+          message: signals[0].defaultMessage
+        });
+      }
+    });
+
+    if ((stats as any).zonaFaltaAlert && (stats as any).zonaFaltaSuper) {
+      const targets = (stats as any).zonaFaltaTargets;
+      alerts.push({
+        id: 'zonaFalta', type: 'sequence',
+        message: `🔥 SUPER CONFLUÊNCIA! Coluna e Dúzia em falta. ROXO FORTE nos alvos da interseção: ${targets.join(", ")}!`
+      });
+    }
+    if ((stats as any).doublePatternAlert && (stats as any).doublePatternTargets && (stats as any).doublePatternTargets.length > 0) {
+      const targetsStr = (stats as any).doublePatternTargets.join(" e ");
+      alerts.push({
+        id: 'double', type: 'sequence',
+        message: `PADRÃO DE DUPLO RECENTE ALVO: ${targetsStr}`
+      });
+    }
+    if ((stats as any).streakAlert && (stats as any).streakTargets && (stats as any).streakTargets.length > 0) {
+      const len = (stats as any).streakLength;
+      const type = (stats as any).streakType;
+      const targets = (stats as any).streakTargets;
+      let targetsStr = targets.join(", ");
+      if (type === "VIZINHOS" && targets.length > 0) {
+        targetsStr = `Região do ${targets[Math.floor(targets.length/2)]} (${targets.join(", ")})`;
+      }
+      alerts.push({
+        id: 'streak', type: 'sequence',
+        message: len >= 4 
+          ? `🔥 ALTA CHANCE (4+ de ${type}): Sequência engatada. JOGAR EM: ${targetsStr}` 
+          : `⚠️ AVISO (3 de ${type}): Padrão se formando. POSSÍVEL ALVO: ${targetsStr}`
+      });
+    }
+    if ((stats as any).zeroVortexAlert && (stats as any).zeroTargets.length > 0) {
+      alerts.push({
+        id: 'zerovortex', type: 'omega',
+        message: `🌪️ VÓRTICE DO ZERO: Jogue nos vizinhos e atratores de ${(stats as any).zeroTargets.join(", ")}!`
+      });
+    }
+    if ((stats as any).hotTerminalAlert && (stats as any).hotTerminalGroup !== -1) {
+      alerts.push({
+        id: 'hotterminal', type: 'sequence',
+        message: `🔥 TERMINAL QUENTE: Finais ${(stats as any).hotTerminalGroup} estão cíclicos!`
+      });
+    }
+    if ((stats as any).signatureClusterAlert && (stats as any).signatureClusterTarget) {
+      alerts.push({
+        id: 'signature', type: 'omega',
+        message: `🎯 CLUSTER DE ASSINATURA: O crupiê tem forte tendência na zona ${(stats as any).signatureClusterTarget}!`
+      });
+    }
+    return alerts;
+  }, [history.length, stats]);
+
+  useEffect(() => {
     if (history.length > 0 && history.length > prevHistoryLength.current) {
-      const newNotifs: AlertNotification[] = [];
-      const timestamp = Date.now();
-
-      const GERMINATION_PHASE = 28;
-      const isGerminated = history.length >= GERMINATION_PHASE;
-
-      if (isGerminated) {
-        if (stats.terminalRepeat && stats.lastTerminalGroup) {
-          newNotifs.push({
-            id: `term-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "terminal",
-            message: `ALERTA DE REPETIÇÃO: TERMINAL ${stats.lastTerminalGroup}`,
-          });
-        }
-
-        if ((stats as any).somaAlert && (stats as any).somaTargetSum !== null) {
-          newNotifs.push({
-            id: `soma-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "soma" as any,
-            message: `ALERTA DE SOMA: TENDÊNCIA NA SOMA ${(stats as any).somaTargetSum}`,
-          });
-        }
-
-        if (stats.omegaAlert && stats.omegaTarget !== null) {
-          newNotifs.push({
-            id: `omega-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "omega",
-            message: `CONVERGÊNCIA ÔMEGA DETECTADA: JOGAR NO ${stats.omegaTarget}`,
-          });
-        }
-
-        if (stats.sequenceAlert && stats.sequenceTarget !== null) {
-          newNotifs.push({
-            id: `seq-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "sequence",
-            message: `PADRÃO HISTÓRICO: O PRÓXIMO PODE SER ${stats.sequenceTarget}`,
-          });
-        }
-
-        if (stats.timeMirrorAlert && (stats as any).timeMirrorTarget !== null) {
-          const seqStr = (stats as any).timeMirrorSeq
-            ? (stats as any).timeMirrorSeq.join(", ")
-            : "";
-          const len = (stats as any).timeMirrorLen;
-          const type = (stats as any).timeMirrorType;
-          const target = (stats as any).timeMirrorTarget;
-          const neighbors = getNeighbors(target, 2).join(", ");
-          newNotifs.push({
-            id: `timeMirror-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "timeMirror",
-            message: `ESPELHO HISTÓRICO: Padrão de ${len} números (${type}: ${seqStr}) se repetiu. JOGAR NO: ${target} (Cobrindo vizinhos: ${neighbors})`,
-          });
-        }
-
-        if ((stats as any).zoneBiasAlert) {
-          newNotifs.push({
-            id: `zone-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "zone",
-            message: `VIÉS DE ZONA EM: ${(stats as any).zoneBiasTarget.toUpperCase()}`,
-          });
-        }
-
-        if ((stats as any).zonaFaltaAlert) {
-          const isSuper = (stats as any).zonaFaltaSuper;
-          const targets = (stats as any).zonaFaltaTargets;
-          newNotifs.push({
-            id: `zonaFalta-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "zonaFalta",
-            message: isSuper 
-              ? `🔥 SUPER CONFLUÊNCIA! Coluna e Dúzia em falta. ROXO FORTE nos alvos da interseção: ${targets.join(", ")}!`
-              : `⚠️ ZONA EM FALTA: Atrasos longos ou repetição nas colunas/dúzias. Alvos marcados em roxo.`,
-          });
-        }
-
-        if ((stats as any).doublePatternAlert && (stats as any).doublePatternTargets && (stats as any).doublePatternTargets.length > 0) {
-          const targetsStr = (stats as any).doublePatternTargets.join(" e ");
-          newNotifs.push({
-            id: `double-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "sequence",
-            message: `PADRÃO DE DUPLO RECENTE ALVO: ${targetsStr}`,
-          });
-        }
-
-        if ((stats as any).streakAlert && (stats as any).streakTargets && (stats as any).streakTargets.length > 0) {
-          const len = (stats as any).streakLength;
-          const type = (stats as any).streakType;
-          const targets = (stats as any).streakTargets;
-          let targetsStr = targets.join(", ");
-          if (type === "VIZINHOS" && targets.length > 0) {
-            targetsStr = `Região do ${targets[Math.floor(targets.length/2)]} (${targets.join(", ")})`;
-          }
-          
-          const msg = len >= 4 
-            ? `🔥 ALTA CHANCE (4+ de ${type}): Sequência engatada. JOGAR EM: ${targetsStr}` 
-            : `⚠️ AVISO (3 de ${type}): Padrão se formando. POSSÍVEL ALVO: ${targetsStr}`;
-            
-          newNotifs.push({
-            id: `streak-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "sequence",
-            message: msg,
-          });
-        }
-
-        if (stats.quebraAlert && stats.quebraTarget !== null) {
-          newNotifs.push({
-            id: `quebra-${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
-            type: "terminal", // Reuse terminal type for styling or define new one if needed
-            message: `${stats.quebraReason}: ALVO NO ${stats.quebraTarget}`,
-          });
-        }
-      }
-
-      // Alertas de chamadas (independente de Germination Phase para ser mais reativo)
-      if ((stats as any).callsAlerts && (stats as any).callsAlerts.length > 0) {
-        (stats as any).callsAlerts.forEach((alert: any) => {
-          newNotifs.push({
-            id: `calls-${timestamp}-${alert.called}`,
-            type: "sequence",
-            message: `O número ${history[0]} já chamou o ${alert.called} ${alert.count} vezes no histórico! Pode buscar de novo.`,
-          });
+      if (!isMuted && activeAlerts.length > 0) {
+        const newNotifs = activeAlerts.map(a => ({
+          ...a,
+          id: `${a.id}-${Date.now()}-${Math.random()}`
+        })) as AlertNotification[];
+        
+        setNotifications(newNotifs);
+        newNotifs.forEach(n => {
+          setTimeout(() => dismissNotification(n.id), 6000);
         });
+      } else {
+        setNotifications([]);
       }
-
-      if (newNotifs.length > 0) {
-        setNotifications((prev) => [...prev, ...newNotifs]);
-
-        // Auto dismiss after 5 seconds
-        newNotifs.forEach((notif) => {
-          setTimeout(() => {
-            setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
-          }, 5000);
-        });
-      }
+    } else if (history.length === 0) {
+      setNotifications([]);
     }
     prevHistoryLength.current = history.length;
-  }, [history.length, stats]);
+  }, [history.length, activeAlerts, isMuted, dismissNotification]);
 
   // Ballistics Engine (Dealer Signature Auto-Calibration)
   const ballistics = useMemo(() => {
@@ -398,21 +393,28 @@ export default function App() {
       if (active.includes(num)) {
         setIsVoltaCerta(false);
         setLossStreak(0);
-        setWinStreak((s) => s + 1);
+        setWinStreak((s) => {
+          const next = s + 1;
+          prevWinStreakRef.current = next;
+          return next;
+        });
       } else {
+        const threshold = prevWinStreakRef.current > 0 ? 2 : 1;
         setWinStreak(0);
         setLossStreak((prev) => {
           const next = prev + 1;
-          if (next >= 2) {
+          if (next >= threshold) {
             setIsVoltaCerta(true);
           }
           return next;
         });
+        prevWinStreakRef.current = 0;
       }
     } else {
       setIsVoltaCerta(false);
       setWinStreak(0);
       setLossStreak(0);
+      prevWinStreakRef.current = 0;
     }
     setHistory((prev) => [num, ...prev].slice(0, 200));
     setIsNextRight((prev) => !prev);
@@ -437,10 +439,6 @@ export default function App() {
     setIsNextRight((prev) => !prev);
   }, []);
 
-  const dismissNotification = React.useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
-
   if (!isAuthenticated) {
     return <Login onLogin={() => setIsAuthenticated(true)} />;
   }
@@ -449,7 +447,9 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#3b0870] via-[#240045] to-[#110022] text-white font-sans antialiased">
       {/* Main Viewport */}
       <main className="flex-1 relative p-2 md:p-4 pb-24">
-        <NotificationSystem notifications={notifications} onDismiss={dismissNotification} />
+        {notifications.length > 0 && (
+          <NotificationSystem notifications={notifications} onDismiss={dismissNotification} />
+        )}
 
         <div className="flex items-center justify-between mb-4 relative z-10 px-2 md:px-0">
           <div className="flex items-center space-x-3">
@@ -523,6 +523,53 @@ export default function App() {
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <nav className="w-full max-w-lg mx-auto mb-6 mt-2 relative z-50">
+          <div className="glass-panel p-1 flex justify-between shadow-[0_5px_20px_rgba(0,0,0,0.3)] relative overflow-hidden">
+            {/* Sliding Indicator */}
+            <motion.div
+              className="absolute top-1 bottom-1 bg-gold/10 rounded-xl border border-gold/20"
+              initial={false}
+              animate={{
+                left: `${["analysis", "stats", "history"].indexOf(activeTab) * 33.33 + 0.5}%`,
+                width: "32.33%",
+              }}
+              transition={{ type: "spring", damping: 25, stiffness: 250 }}
+            />
+
+            {(["analysis", "stats", "history"] as const).map((tab) => {
+              const icons = {
+                analysis: <LayoutDashboard className="w-3.5 h-3.5" />,
+                stats: <PieChart className="w-3.5 h-3.5" />,
+                history: <List className="w-3.5 h-3.5" />,
+              };
+              const labels = {
+                analysis: "Oráculo",
+                stats: "Dados",
+                history: "Histórico",
+              };
+
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "flex-1 flex flex-col items-center py-1 space-y-0.5 transition-colors rounded-xl relative z-10",
+                    activeTab === tab
+                      ? "text-gold"
+                      : "text-white/30 hover:text-white/60",
+                  )}
+                >
+                  {icons[tab]}
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    {labels[tab]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
         <AnimatePresence mode="wait">
           {activeTab === "analysis" && (
             <motion.div
@@ -531,7 +578,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="flex flex-col items-center space-y-4"
+              className="flex flex-col items-center space-y-4 relative w-full pt-1"
             >
               <div className="w-full flex justify-center mb-1">
                 <div className="glass-panel px-6 py-2 premium-border shadow-[0_0_20px_rgba(212,175,55,0.1)] inline-flex flex-col items-center">
@@ -552,11 +599,7 @@ export default function App() {
                 ballistics={ballistics}
               />
 
-              <VacuumTracker vacuumAlerts={stats.vacuumAlerts} />
-
-              <AlertTracker stats={stats} />
-
-              <div className="relative group mt-3">
+              <div className="relative group mt-3 mb-6">
                 <div className="absolute -inset-4 bg-gold/10 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 <RouletteWheel
                   targets={combinedTargets}
@@ -574,12 +617,66 @@ export default function App() {
                   timeMirrorTarget={(stats as any).timeMirrorTarget}
                   somaAlert={(stats as any).somaAlert}
                   somaTargetSum={(stats as any).somaTargetSum}
-                  doublePatternTargets={(stats as any).doublePatternTargets || []}
-                  streakTargets={(stats as any).streakTargets || []}
-                  zonaFaltaTargets={(stats as any).zonaFaltaTargets || []}
+                  doublePatternTargets={(stats as any).doublePatternTargets || EMPTY_ARRAY}
+                  streakTargets={(stats as any).streakTargets || EMPTY_ARRAY}
+                  zonaFaltaTargets={(stats as any).zonaFaltaTargets || EMPTY_ARRAY}
                   zonaFaltaSuper={(stats as any).zonaFaltaSuper || false}
                   onDismissSignal={dismissSignal}
                 />
+              </div>
+
+              <div className="mb-4">
+                {activeAlerts.length > 0 && (
+                  <div className="w-full flex flex-col items-center space-y-2 mb-4 px-2 md:px-0">
+                    <AnimatePresence mode="popLayout">
+                      {activeAlerts.map(alert => (
+                        <motion.div 
+                          key={alert.id}
+                          layout
+                          initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          className={cn(
+                            "p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors",
+                            alert.type === 'vacuum' ? "bg-black/80 text-amber-400" : 
+                            alert.type === 'omega' ? "bg-black/80 text-gold" :
+                            alert.type === 'sequence' ? "bg-black/80 text-blue-400" :
+                            alert.type === 'zone' ? "bg-black/80 text-emerald-400" :
+                            "bg-black/80 text-purple-400"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute inset-0 opacity-[0.03] pointer-events-none",
+                            alert.type === 'vacuum' ? "bg-[radial-gradient(ellipse_at_top,_#f59e0b_0%,_transparent_70%)]" : 
+                            alert.type === 'omega' ? "bg-[radial-gradient(ellipse_at_top,_#d4af37_0%,_transparent_70%)]" :
+                            alert.type === 'sequence' ? "bg-[radial-gradient(ellipse_at_top,_#3b82f6_0%,_transparent_70%)]" :
+                            alert.type === 'zone' ? "bg-[radial-gradient(ellipse_at_top,_#10b981_0%,_transparent_70%)]" :
+                            "bg-[radial-gradient(ellipse_at_top,_#a855f7_0%,_transparent_70%)]"
+                          )} />
+                          <div className={cn(
+                            "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10",
+                            alert.type === 'vacuum' ? "bg-amber-500/10 border-amber-500/20" : 
+                            alert.type === 'omega' ? "bg-gold/10 border-gold/20" :
+                            alert.type === 'sequence' ? "bg-blue-500/10 border-blue-500/20" :
+                            alert.type === 'zone' ? "bg-emerald-500/10 border-emerald-500/20" :
+                            "bg-purple-500/10 border-purple-500/20"
+                          )}>
+                            {alert.type === 'vacuum' ? <AlertTriangle className="w-3.5 h-3.5" /> : 
+                             alert.type === 'omega' ? <Crown className="w-3.5 h-3.5 text-gold drop-shadow-md" /> :
+                             alert.type === 'sequence' ? <History className="w-3.5 h-3.5 text-blue-400" /> :
+                             alert.type === 'zone' ? <PieChart className="w-3.5 h-3.5 text-emerald-400" /> :
+                             <Repeat className="w-3.5 h-3.5" />}
+                          </div>
+                          <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
+                            {alert.message}
+                          </span>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+                <AlertTracker stats={stats} />
               </div>
 
               <ManualControl
@@ -643,9 +740,9 @@ export default function App() {
                 timeMirrorTarget={(stats as any).timeMirrorTarget}
                 somaAlert={(stats as any).somaAlert}
                 somaTargetSum={(stats as any).somaTargetSum}
-                doublePatternTargets={(stats as any).doublePatternTargets || []}
-                streakTargets={(stats as any).streakTargets || []}
-                zonaFaltaTargets={(stats as any).zonaFaltaTargets || []}
+                doublePatternTargets={(stats as any).doublePatternTargets || EMPTY_ARRAY}
+                streakTargets={(stats as any).streakTargets || EMPTY_ARRAY}
+                zonaFaltaTargets={(stats as any).zonaFaltaTargets || EMPTY_ARRAY}
                 zonaFaltaSuper={(stats as any).zonaFaltaSuper || false}
                 onDismissSignal={dismissSignal}
               />
@@ -653,53 +750,6 @@ export default function App() {
           </IframeBrowser>
         </div>
       </main>
-
-      {/* Tab Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-black to-transparent pointer-events-none z-[60]">
-        <div className="max-w-lg mx-auto glass-panel p-1 flex justify-between pointer-events-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)] relative overflow-hidden">
-          {/* Sliding Indicator */}
-          <motion.div
-            className="absolute top-1 bottom-1 bg-gold/10 rounded-xl border border-gold/20"
-            initial={false}
-            animate={{
-              left: `${["analysis", "stats", "history"].indexOf(activeTab) * 33.33 + 0.5}%`,
-              width: "32.33%",
-            }}
-            transition={{ type: "spring", damping: 25, stiffness: 250 }}
-          />
-
-          {(["analysis", "stats", "history"] as const).map((tab) => {
-            const icons = {
-              analysis: <LayoutDashboard className="w-3.5 h-3.5" />,
-              stats: <PieChart className="w-3.5 h-3.5" />,
-              history: <List className="w-3.5 h-3.5" />,
-            };
-            const labels = {
-              analysis: "Oráculo",
-              stats: "Dados",
-              history: "Histórico",
-            };
-
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "flex-1 flex flex-col items-center py-1 space-y-0.5 transition-colors rounded-xl relative z-10",
-                  activeTab === tab
-                    ? "text-gold"
-                    : "text-white/30 hover:text-white/60",
-                )}
-              >
-                {icons[tab]}
-                <span className="text-[9px] font-black uppercase tracking-widest">
-                  {labels[tab]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
 
       {/* Background Elements */}
       <div className="fixed top-1/2 left-0 -translate-y-1/2 p-8 opacity-10 pointer-events-none hidden lg:block">

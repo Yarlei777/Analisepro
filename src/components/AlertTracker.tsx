@@ -1,10 +1,12 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { TrendingUp, Zap, Target, AlertCircle, Crosshair } from "lucide-react";
+import { cn } from "../lib/utils";
 
 interface AlertTrackerProps {
   stats: {
     biasDetected?: boolean;
+    biasTarget?: number;
     terminalRepeat: boolean;
     lastTerminalGroup: string | null;
     sectorConfidence?: number;
@@ -34,55 +36,29 @@ interface AlertTrackerProps {
 
 export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) => {
   return (
-    <div className="w-full max-w-2xl space-y-4">
+    <div className="w-full max-w-2xl space-y-2">
       <AnimatePresence mode="popLayout">
         {stats.crazyTable && (
           <motion.div
             key="alert-crazy-table"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="text-[10px] font-black text-red-500 bg-red-500/10 py-3 rounded-xl border border-red-500/20 flex flex-col items-center justify-center space-y-1 text-center px-4"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex flex-col items-center justify-center space-y-1 transition-colors bg-black/80 text-red-500"
           >
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 animate-pulse" />
-              <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#ef4444_0%,_transparent_70%)]" />
+            <div className="flex items-center space-x-2 relative z-10 w-full mb-1">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border bg-red-500/10 border-red-500/20">
+                <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+              </div>
+              <span className="text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md text-left">
                 ALERTA: MESA MALUCA / NÃO ESTÁ PAGANDO
               </span>
             </div>
-            <span className="text-[8px] font-mono opacity-80 tracking-widest">
+            <span className="text-[8px] font-mono opacity-80 tracking-widest relative z-10">
               ENTROPIA: {stats.entropyLevel}% | ASSERTIVIDADE: {stats.winRate}%
             </span>
-          </motion.div>
-        )}
-
-        {stats.biasDetected && !stats.crazyTable && (
-          <motion.div
-            key="alert-bias"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="text-[10px] font-black text-gold bg-gold/10 py-3 rounded-xl border border-gold/20 flex items-center justify-center space-x-2"
-          >
-            <TrendingUp className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
-              VIÉS ESTATÍSTICO DETECTADO: NÚMERO {stats.biasTarget ?? 'VICIADO'}
-            </span>
-          </motion.div>
-        )}
-
-        {stats.terminalRepeat && (
-          <motion.div
-            key="alert-terminal"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 flex items-center justify-center space-x-2"
-          >
-            <Zap className="w-4 h-4 animate-bounce" />
-            <span className="tracking-[0.2em]">
-              REPETIÇÃO DE GRUPO TERMINAL ({stats.lastTerminalGroup})
-            </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
@@ -90,184 +66,171 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
           stats.sectorConfidence > 0.7 && (
             <motion.div
               key="alert-sector-confidence"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20 flex items-center justify-center space-x-2"
+              initial={{ opacity: 0, x: 20, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-emerald-400"
             >
-              <Target className="w-4 h-4 animate-pulse" />
-              <span className="tracking-[0.2em]">
-                PADRÃO DE TRANSIÇÃO DE ÁREA DETECTADO:{" "}
-                {stats.predictedSector?.toUpperCase()}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#10b981_0%,_transparent_70%)]" />
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-emerald-500/10 border-emerald-500/20">
+                <Target className="w-3.5 h-3.5 animate-pulse" />
+              </div>
+              <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
+                PADRÃO DE TRANSIÇÃO DE ÁREA DETECTADO: {stats.predictedSector?.toUpperCase()}
               </span>
+              <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
             </motion.div>
           )}
 
         {stats.sectorSequencePattern !== "N/A" && (
           <motion.div
             key="alert-sector-sequence"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="text-[10px] font-black text-gold bg-gold/10 py-3 rounded-xl border border-gold/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-gold"
           >
-            <TrendingUp className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#d4af37_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-gold/10 border-gold/20">
+              <TrendingUp className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               SEQUÊNCIA DE SETORES DETECTADA: {stats.sectorSequencePattern}
             </span>
-          </motion.div>
-        )}
-
-        {stats.mirrorAlert && (
-          <motion.div
-            key="alert-mirror"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-red-400 bg-red-500/10 py-3 rounded-xl border border-red-500/20 flex items-center justify-center space-x-2"
-          >
-            <Zap className="w-4 h-4 animate-bounce" />
-            <span className="tracking-[0.2em]">
-              ALERTA DE ESPELHO: JOGAR NO {stats.mirrorTarget}
-            </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
         {(stats as any).somaAlert && (
           <motion.div
             key="alert-soma"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-blue-400 bg-blue-500/10 py-3 rounded-xl border border-blue-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-blue-400"
           >
-            <Target className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#60a5fa_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-blue-500/10 border-blue-500/20">
+              <Target className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               ALERTA DE SOMA ({(stats as any).somaTargetSum}): CONVERGÊNCIA NOS NÚMEROS DE SOMA IGUAL
             </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
-
-        {(stats as any).timeMirrorAlert &&
-          (stats as any).timeMirrorTarget !== null && (
-            <motion.div
-              key="alert-time-mirror"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="text-[10px] font-black text-purple-400 bg-purple-500/10 py-3 rounded-xl border border-purple-500/20 flex items-center justify-center space-x-2"
-            >
-              <Zap className="w-4 h-4 animate-bounce" />
-              <span className="tracking-[0.2em]">
-                ESPELHO TEMPORAL ({(stats as any).timeMirrorSeq?.join(" - ")}):
-                JOGAR NO {(stats as any).timeMirrorTarget} E VIZINHOS
-              </span>
-            </motion.div>
-          )}
 
         {stats.quebraAlert && stats.quebraTarget !== null && (
           <motion.div
             key="alert-quebra"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-orange-400 bg-orange-500/10 py-3 rounded-xl border border-orange-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-orange-400"
           >
-            <Zap className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#fb923c_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-orange-500/10 border-orange-500/20">
+              <Zap className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               {stats.quebraReason}: JOGAR NO {stats.quebraTarget}
             </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
         {stats.signatureClusterAlert && (
           <motion.div
             key="alert-signature-cluster"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-cyan-400 bg-cyan-500/10 py-3 rounded-xl border border-cyan-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-cyan-400"
           >
-            <Target className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#22d3ee_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-cyan-500/10 border-cyan-500/20">
+              <Target className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               ASSINATURA DE DEALER (CLUSTER): {stats.signatureClusterTarget}
             </span>
-          </motion.div>
-        )}
-
-        {stats.robberyAlert && stats.robberyGaps && stats.robberyGaps.length > 0 && (
-          <motion.div
-            key="alert-robbery-gap"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="text-[10px] font-black text-rose-500 bg-rose-500/10 py-3 rounded-xl border border-rose-500/30 flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
-          >
-            <Crosshair className="w-4 h-4 animate-spin-slow" />
-            <span className="tracking-[0.2em] text-center">
-              PADRÃO DE ROUBO ATIVO ({stats.robberyRecentCount}x):<br />
-              <span className="text-rose-400 font-mono text-xs">COBRINDO BURACOS: {stats.robberyGaps.join(", ")}</span>
-            </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
         {stats.sleepingDozen !== undefined && stats.sleepingDozen !== null && stats.sleepingDozenCount && stats.sleepingDozenCount > 6 && (
           <motion.div
             key="alert-sleeping-dozen"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-fuchsia-400 bg-fuchsia-500/10 py-3 rounded-xl border border-fuchsia-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-fuchsia-400"
           >
-            <AlertCircle className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#e879f9_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-fuchsia-500/10 border-fuchsia-500/20">
+              <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               SONO PROFUNDO: DÚZIA {stats.sleepingDozen} AUSENTE HÁ {stats.sleepingDozenCount} RODADAS
             </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
         {stats.sleepingColumn !== undefined && stats.sleepingColumn !== null && stats.sleepingColumnCount && stats.sleepingColumnCount > 6 && (
           <motion.div
             key="alert-sleeping-column"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-fuchsia-400 bg-fuchsia-500/10 py-3 rounded-xl border border-fuchsia-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-fuchsia-400"
           >
-            <AlertCircle className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#e879f9_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-fuchsia-500/10 border-fuchsia-500/20">
+              <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               SONO PROFUNDO: COLUNA {stats.sleepingColumn} AUSENTE HÁ {stats.sleepingColumnCount} RODADAS
             </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
         {stats.alternatingColorPattern && (
           <motion.div
             key="alert-alt-color"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-yellow-400 bg-yellow-500/10 py-3 rounded-xl border border-yellow-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-yellow-400"
           >
-            <TrendingUp className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#facc15_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-yellow-500/10 border-yellow-500/20">
+              <TrendingUp className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               PADRÃO DE PING-PONG (Cores Alternadas) DETECTADO
             </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
         {stats.callsAlerts && stats.callsAlerts.length > 0 && (
           <motion.div
             key="alert-calls"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="text-[10px] font-black text-indigo-400 bg-indigo-500/10 py-3 rounded-xl border border-indigo-500/20 flex items-center justify-center space-x-2"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-indigo-400"
           >
-            <Zap className="w-4 h-4 animate-pulse" />
-            <span className="tracking-[0.2em]">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#818cf8_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-indigo-500/10 border-indigo-500/20">
+              <Zap className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
               ALERTA DE CHAMADAS: {stats.callsAlerts.map(a => `${a.called} (${a.count}x)`).join(" | ")} PODE CHAMAR DE NOVO
             </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
         )}
 
@@ -275,3 +238,4 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
     </div>
   );
 });
+

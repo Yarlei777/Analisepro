@@ -58,7 +58,7 @@ export const IframeBrowser = React.memo(({
       {iframeUrl && (
         <motion.div 
           initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 750, opacity: 1 }}
+          animate={{ height: 550, opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           className="w-[85%] sm:w-[75%] max-w-3xl mx-auto overflow-hidden glass-panel premium-border my-4 relative flex flex-col group/browser"
         >

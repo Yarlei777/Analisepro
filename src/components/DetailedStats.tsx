@@ -295,6 +295,41 @@ export const DetailedStats: React.FC<DetailedStatsProps> = React.memo(({ stats }
             </div>
 
             <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[6px] font-black text-white/40 uppercase block mb-1 tracking-widest">Dobradinha Bateu</span>
+              <span className={cn("text-[9px] font-black italic font-serif truncate block", stats.twinRepeatAlert && stats.twinRepeatTarget !== null ? "text-yellow-400" : "text-white/20")}>
+                {stats.twinRepeatAlert && stats.twinRepeatTarget !== null ? `Alvo: ${stats.twinRepeatTarget} (Viciado)` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[6px] font-black text-white/40 uppercase block mb-1 tracking-widest">Sanduíche Curto</span>
+              <span className={cn("text-[9px] font-black italic font-serif truncate block", stats.sandwichAlert && stats.sandwichTarget !== null ? "text-yellow-400" : "text-white/20")}>
+                {stats.sandwichAlert && stats.sandwichTarget !== null ? `Alvo Meio: ${stats.sandwichTarget}` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[6px] font-black text-white/40 uppercase block mb-1 tracking-widest">Magnética do Zero</span>
+              <span className={cn("text-[9px] font-black italic font-serif truncate block", stats.zeroVortexAlert ? "text-emerald-400" : "text-white/20")}>
+                {stats.zeroVortexAlert ? `Alvos: ${stats.zeroTargets.join(', ')}` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[6px] font-black text-white/40 uppercase block mb-1 tracking-widest">Espelho Magnético</span>
+              <span className={cn("text-[9px] font-black italic font-serif truncate block", stats.mirrorAlert && stats.mirrorTarget !== null ? "text-cyan-400" : "text-white/20")}>
+                {stats.mirrorAlert && stats.mirrorTarget !== null ? `Alvo Curto: ${stats.mirrorTarget}` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
+              <span className="text-[6px] font-black text-white/40 uppercase block mb-1 tracking-widest">Terminal Quente</span>
+              <span className={cn("text-[9px] font-black italic font-serif truncate block", stats.hotTerminalAlert ? "text-red-400 font-bold" : "text-white/20")}>
+                {stats.hotTerminalAlert ? `Final ${stats.hotTerminalGroup} (Ciclico)` : 'Inativo'}
+              </span>
+            </div>
+
+            <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 group hover:border-blue-500/30 transition-colors">
               <span className="text-[6px] font-black text-white/40 uppercase block mb-1 tracking-widest">Espelho Temporal</span>
               <span className={cn("text-[9px] font-black italic font-serif truncate block", stats.timeMirrorAlert && stats.timeMirrorTarget !== null ? "text-cyan-400" : "text-white/20")}>
                 {stats.timeMirrorAlert && stats.timeMirrorTarget !== null ? `Alvo: ${stats.timeMirrorTarget} (Ref: ${stats.timeMirrorSeq?.join(', ')})` : 'Inativo'}

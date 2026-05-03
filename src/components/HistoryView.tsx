@@ -90,12 +90,8 @@ export const HistoryView = React.memo(({
             </motion.div>
           ) : (
             history.map((num, i) => (
-              <motion.div
+              <div
                 key={history.length - i}
-                layout
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
                 className={cn(
                   "p-2 rounded-xl flex flex-col items-center justify-center group transition-all premium-border relative aspect-square",
                   RED_NUMBERS.includes(num) ? "bg-red-950/20 hover:bg-red-950/30 border-red-500/10" : 
@@ -112,7 +108,7 @@ export const HistoryView = React.memo(({
                   )}>
                     {num}
                   </div>
-              </motion.div>
+              </div>
             ))
           )}
         </AnimatePresence>

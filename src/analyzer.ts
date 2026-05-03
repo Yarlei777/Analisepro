@@ -36,6 +36,14 @@ export function analyzeHistory(
     timeMirrorSeq: [] as number[],
     timeMirrorType: "" as string,
     timeMirrorLen: 0,
+    sandwichAlert: false,
+    sandwichTarget: null as number | null,
+    hotTerminalAlert: false,
+    hotTerminalGroup: -1,
+    zeroVortexAlert: false,
+    zeroTargets: [] as number[],
+    twinRepeatAlert: false,
+    twinRepeatTarget: null as number | null,
     somaAlert: false,
     somaTargetSum: null as number | null,
     doublePatternAlert: false,
@@ -63,6 +71,7 @@ export function analyzeHistory(
     robberyRecentCount: 0,
     robberyGaps: [] as number[],
     stealingPhaseAlert: false,
+    stealingTarget: null as number | null,
     sleepingDozen: null as number | null,
     sleepingColumn: null as number | null,
     sleepingDozenCount: 0,
@@ -163,6 +172,53 @@ export function analyzeHistory(
     );
     if (seqSorted.length > 0) {
       thirdNumberTarget = parseInt(seqSorted[0][0]);
+    }
+
+    // --- Espelhos Simples (Mirrors) ---
+    const mirrorMap: Record<number, number> = {
+      12: 21, 21: 12, 13: 31, 31: 13, 23: 32, 32: 23
+    };
+    if (history.length >= 2) {
+      const recent = history[0];
+      if (mirrorMap[recent]) {
+        stats.mirrorAlert = true;
+        stats.mirrorTarget = mirrorMap[recent];
+      }
+    }
+
+    // --- Síndrome do Sanduíche ("Vai e Volta") ---
+    if (history.length >= 3) {
+      if (history[0] === history[2]) {
+        stats.sandwichAlert = true;
+        stats.sandwichTarget = history[1]; // O recheio
+      }
+    }
+
+    // --- Detecção de Terminais Quentes ---
+    if (history.length >= 5) {
+      const recentsTerm = history.slice(0, 5).map(n => n % 10);
+      const termCounts = recentsTerm.reduce((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+      }, {} as Record<number, number>);
+      
+      const hotTwinMatch = Object.entries(termCounts).find(([_, count]) => count >= 2);
+      if (hotTwinMatch) {
+        stats.hotTerminalAlert = true;
+        stats.hotTerminalGroup = parseInt(hotTwinMatch[0]);
+      }
+    }
+
+    // --- Vórtice do Zero ---
+    if (history[0] === 0 || history[1] === 0) {
+      stats.zeroVortexAlert = true;
+      stats.zeroTargets = [26, 32, 15, 3]; // Typical 0 neighbors/attractors
+    }
+
+    // --- Dobradinhas (Twin Repeat) ---
+    if (history.length >= 2 && history[0] === history[1]) {
+      stats.twinRepeatAlert = true;
+      stats.twinRepeatTarget = history[0];
     }
 
     // --- Time Mirror (Espelho Temporal Histórico) ---
@@ -1105,6 +1161,18 @@ export function analyzeHistory(
   if (stats.quebraAlert && stats.quebraTarget !== null) {
     primaryTargets.push(stats.quebraTarget);
   }
+  if (stats.mirrorAlert && stats.mirrorTarget !== null) {
+    primaryTargets.push(stats.mirrorTarget);
+  }
+  if (stats.sandwichAlert && stats.sandwichTarget !== null) {
+    primaryTargets.push(stats.sandwichTarget);
+  }
+  if (stats.zeroVortexAlert && stats.zeroTargets.length > 0) {
+    primaryTargets.push(...stats.zeroTargets);
+  }
+  if (stats.twinRepeatAlert && stats.twinRepeatTarget !== null) {
+    primaryTargets.push(stats.twinRepeatTarget);
+  }
 
   primaryTargets = Array.from(new Set(primaryTargets));
   
@@ -1252,7 +1320,7 @@ export function analyzeHistory(
       }
     }
     // 4. Padrão de Roubo / Sniper Gap
-    if (history.length > 5) {
+    if (!isRecursive && history.length > 5) {
       const getVisualTargets = (tgts: number[]) => {
         const visual = new Set<number>();
         const m: Record<number, number> = { 12: 21, 21: 12, 13: 31, 31: 13, 23: 32, 32: 23, 16: 19, 19: 16, 6: 9, 9: 6 };
@@ -1377,6 +1445,7 @@ export function analyzeHistory(
     if ((isStealingPhase || stats.crazyTable) && scores) {
       stats.stealingPhaseAlert = true;
       const hole = scores[scores.length - 1].num; // Pega o buraco mais profundo
+      stats.stealingTarget = hole;
       
       // Se tiver anomalia balística mesmo em fase ruim, confia no sinal verde
       if (stats.crazyTable && (stats.omegaAlert || stats.quebraAlert)) {

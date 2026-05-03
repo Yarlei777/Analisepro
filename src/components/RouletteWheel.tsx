@@ -51,76 +51,19 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
     onDismissSignal,
   }) => {
     // Racetrack geometry constants
-    const R = 80;
-    const H = 420;
-    const W = 46; // Track thickness
+    const R = 105;
+    const H = 430;
+    const W = 62; // Track thickness
     const Cx = 170;
-    const Cy_top = 130;
+    const Cy_top = 145;
     const Cy_bottom = Cy_top + H;
-    const innerR = R - W / 2; // 57
+    const innerR = R - W / 2; // 74
 
     const arcL = (Math.PI * R) / 2;
     const totalL = 2 * Math.PI * R + 2 * H;
     const segmentL = totalL / 37;
 
     // Helper to place text items exactly along the center of the track segments
-    const getTrackPoint = (distance: number, offsetRadius: number) => {
-      let d = distance % totalL;
-      if (d < 0) d += totalL;
-
-      // 1. Top Right Arc
-      if (d <= arcL) {
-        const a = -Math.PI / 2 + (d / arcL) * (Math.PI / 2);
-        return {
-          x: Cx + offsetRadius * Math.cos(a),
-          y: Cy_top + offsetRadius * Math.sin(a),
-        };
-      }
-      d -= arcL;
-
-      // 2. Right Straight
-      if (d <= H) {
-        return { x: Cx + offsetRadius, y: Cy_top + d };
-      }
-      d -= H;
-
-      // 3. Bottom Right Arc
-      if (d <= arcL) {
-        const a = 0 + (d / arcL) * (Math.PI / 2);
-        return {
-          x: Cx + offsetRadius * Math.cos(a),
-          y: Cy_bottom + offsetRadius * Math.sin(a),
-        };
-      }
-      d -= arcL;
-
-      // 4. Bottom Left Arc
-      if (d <= arcL) {
-        const a = Math.PI / 2 + (d / arcL) * (Math.PI / 2);
-        return {
-          x: Cx - offsetRadius * Math.cos(a),
-          y: Cy_bottom - offsetRadius * Math.sin(a),
-        };
-      }
-      d -= arcL;
-
-      // 5. Left Straight
-      if (d <= H) {
-        return { x: Cx - offsetRadius, y: Cy_bottom - d };
-      }
-      d -= H;
-
-      // 6. Top Left Arc
-      const a = Math.PI + (d / arcL) * (Math.PI / 2);
-      return {
-        x: Cx - offsetRadius * Math.cos(a),
-        y: Cy_top - offsetRadius * Math.sin(a),
-      };
-      // Wait, the Top Left Curve angle and offset logic needs to correctly map
-      // to the (Cx, Cy_top) origin. Using standard logic.
-    };
-
-    // Re-write getTrackPoint with absolute pure logic to avoid Math flaws on corners
     const getTrackXY = (d: number, r: number) => {
       d = ((d % totalL) + totalL) % totalL;
       if (d <= arcL) {
@@ -183,9 +126,9 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               x2="100%"
               y2="100%"
             >
-              <stop offset="0%" stopColor="#0a1d17" />
-              <stop offset="50%" stopColor="#0d261e" />
-              <stop offset="100%" stopColor="#071510" />
+              <stop offset="0%" stopColor="#1e1c18" />
+              <stop offset="50%" stopColor="#2c2a26" />
+              <stop offset="100%" stopColor="#1a1815" />
             </linearGradient>
 
             <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -260,65 +203,84 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             />
           </g>
 
-          {/* Decorative lines for felt regions */}
-          <g stroke="#ffffff" strokeOpacity="0.1" fill="none">
-            <path d={`M ${jeuL.x},${jeuL.y} L ${jeuR.x},${jeuR.y}`} />
-            <path d={`M ${voiL.x},${voiL.y} L ${voiR.x},${voiR.y}`} />
-            <path d={`M ${orpL.x},${orpL.y} L ${orpR.x},${orpR.y}`} />
+          {/* Decorative lines and borders for felt regions */}
+          <g stroke="#ffffff" strokeOpacity="0.15" strokeWidth="2" fill="none">
+            {/* Divider for Voisins / Orphelins */}
+            <line x1={voiL.x} y1={voiL.y} x2={voiR.x} y2={voiR.y} />
+            {/* Divider for Orphelins / Tiers */}
+            <line x1={orpL.x} y1={orpL.y} x2={orpR.x} y2={orpR.y} />
+            {/* Curved divider for Jeu Zero */}
+            <path d={`M ${jeuL.x},${jeuL.y} A ${innerR},${innerR} 0 0 0 ${jeuR.x},${jeuR.y}`} />
+            
+            {/* Thick inner border to separate felt from numbers */}
+            <path
+              d={`
+                M ${Cx},${Cy_top - innerR} 
+                A ${innerR},${innerR} 0 0 1 ${Cx + innerR},${Cy_top} 
+                L ${Cx + innerR},${Cy_bottom} 
+                A ${innerR},${innerR} 0 0 1 ${Cx},${Cy_bottom + innerR} 
+                A ${innerR},${innerR} 0 0 1 ${Cx - innerR},${Cy_bottom} 
+                L ${Cx - innerR},${Cy_top} 
+                A ${innerR},${innerR} 0 0 1 ${Cx},${Cy_top - innerR} 
+                Z
+              `}
+            />
           </g>
 
-          <g className="font-serif italic font-bold tracking-widest uppercase">
+          <g className="font-sans font-black tracking-widest uppercase" style={{ WebkitFontSmoothing: "antialiased" }}>
             <text
               x={Cx}
-              y={105}
-              fill="#d4af37"
-              fontSize="13"
+              y={Cy_top + 30}
+              fill="#ffffff"
+              fontSize="14"
               textAnchor="middle"
-              opacity="0.6"
+              opacity="0.9"
             >
-              Jeu Zero
+              JEU ZERO
             </text>
             <text
               x={Cx}
-              y={220}
+              y={Cy_top + 160}
               fill="#ffffff"
-              fontSize="12"
+              fontSize="16"
               textAnchor="middle"
-              opacity="0.2"
+              opacity="0.9"
             >
-              Voisins
+              VOISINS
             </text>
             <text
               x={Cx}
-              y={380}
+              y={Cy_top + 300}
               fill="#ffffff"
-              fontSize="12"
+              fontSize="15"
               textAnchor="middle"
-              opacity="0.2"
+              opacity="0.9"
             >
-              Orphelins
+              ORPHELINS
             </text>
             <text
               x={Cx}
-              y={510}
+              y={Cy_bottom - 20}
               fill="#ffffff"
-              fontSize="12"
+              fontSize="15"
               textAnchor="middle"
-              opacity="0.2"
+              opacity="0.9"
             >
-              Tiers
+              TIERS
             </text>
           </g>
 
           {/* The Track Base Borders - Realistic Rim */}
           <path
             d={trackPath}
+            pathLength={totalL}
             fill="none"
             stroke="#1c1917"
             strokeWidth={W + 12}
           />
           <path
             d={trackPath}
+            pathLength={totalL}
             fill="none"
             stroke="url(#goldRim)"
             strokeWidth={W + 6}
@@ -326,9 +288,19 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
           />
           <path
             d={trackPath}
+            pathLength={totalL}
             fill="none"
-            stroke="#000000"
+            stroke="#111111"
             strokeWidth={W + 2}
+          />
+          {/* White separator background for the grid look */}
+          <path
+            d={trackPath}
+            pathLength={totalL}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={W}
+            strokeOpacity="0.25"
           />
 
           {/* Array of Colored Segments */}
@@ -336,36 +308,38 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             const color = getNumberColor(num);
             const fillColor =
               color === "red"
-                ? "#991b1b"
+                ? "#bf1516" // Vibrant casino red
                 : color === "black"
-                  ? "#09090b"
-                  : "#065f46";
+                  ? "#18181b" // Very dark gray
+                  : "#2e7d32"; // Rich casino green
 
-            const drawLength = segmentL - 0.5; // Thin gap between blocks
+            // A gap of 1.5 forces the white line background to show through as dividers
+            const drawLength = segmentL - 1.5; 
 
-            let offset = drawLength / 2 - i * segmentL;
-            while (offset < 0) offset += totalL;
-            offset = offset % totalL;
+            let start = i * segmentL - drawLength / 2;
+            let end = i * segmentL + drawLength / 2;
+
+            start = ((start % totalL) + totalL) % totalL;
+            end = ((end % totalL) + totalL) % totalL;
+
+            let dashArrayObj;
+            if (start > end) {
+              dashArrayObj = `${end} ${start - end} ${totalL - start}`;
+            } else {
+              dashArrayObj = `0 ${start} ${end - start} ${totalL - end}`;
+            }
 
             return (
               <g key={`segment-group-${num}`}>
                 <path
                   d={trackPath}
+                  pathLength={totalL}
                   fill="none"
                   stroke={fillColor}
                   strokeWidth={W}
-                  strokeDasharray={`${drawLength} ${totalL - drawLength}`}
-                  strokeDashoffset={offset}
-                />
-                {/* Subtle bevel effect on segments */}
-                <path
-                  d={trackPath}
-                  fill="none"
-                  stroke="rgba(255,255,255,0.05)"
-                  strokeWidth={W - 4}
-                  strokeDasharray={`${drawLength} ${totalL - drawLength}`}
-                  strokeDashoffset={offset}
-                  strokeOpacity="0.5"
+                  strokeDasharray={dashArrayObj}
+                  strokeDashoffset={0}
+                  strokeLinecap="butt"
                 />
               </g>
             );
@@ -527,7 +501,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
     ]);
 
     return (
-      <div className="relative w-full max-w-[320px] mx-auto aspect-[34/70] flex items-center justify-center select-none lg:max-h-[80vh]">
+      <div className="relative w-full max-w-[340px] mx-auto aspect-[34/74] flex items-center justify-center select-none lg:max-h-[85vh]">
         {/* Play Signal Lightning Bolt */}{" "}
         <div
           className={cn(
@@ -594,7 +568,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
         <svg
           width="100%"
           height="100%"
-          viewBox="0 0 340 700"
+          viewBox="0 0 340 740"
           className="drop-shadow-2xl"
         >
           {svgContent}
