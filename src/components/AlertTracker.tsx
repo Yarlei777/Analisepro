@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { TrendingUp, Zap, Target, AlertCircle, Crosshair } from "lucide-react";
+import { TrendingUp, Zap, Target, AlertCircle, Crosshair, PieChart } from "lucide-react";
 import { cn } from "../lib/utils";
 
 interface AlertTrackerProps {
@@ -31,6 +31,7 @@ interface AlertTrackerProps {
     robberyRecentCount?: number;
     robberyGaps?: number[];
     callsAlerts?: { called: number; count: number }[];
+    terminalCallsAlerts?: { terminal: number; count: number }[];
   };
 }
 
@@ -52,7 +53,7 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
                 <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
               </div>
               <span className="text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md text-left">
-                ALERTA: MESA MALUCA / NÃO ESTÁ PAGANDO
+                MESA MALUCA / NÃO ESTÁ PAGANDO
               </span>
             </div>
             <span className="text-[8px] font-mono opacity-80 tracking-widest relative z-10">
@@ -76,7 +77,7 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
                 <Target className="w-3.5 h-3.5 animate-pulse" />
               </div>
               <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
-                PADRÃO DE TRANSIÇÃO DE ÁREA DETECTADO: {stats.predictedSector?.toUpperCase()}
+                TRANSIÇÃO DE ÁREA: JOGAR EM {stats.predictedSector?.toUpperCase()}
               </span>
               <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
             </motion.div>
@@ -95,7 +96,7 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
               <TrendingUp className="w-3.5 h-3.5 animate-pulse" />
             </div>
             <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
-              SEQUÊNCIA DE SETORES DETECTADA: {stats.sectorSequencePattern}
+              SEQUÊNCIA DE SETORES: JOGAR EM {stats.sectorSequencePattern}
             </span>
             <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
@@ -114,7 +115,7 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
               <Target className="w-3.5 h-3.5 animate-pulse" />
             </div>
             <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
-              ALERTA DE SOMA ({(stats as any).somaTargetSum}): CONVERGÊNCIA NOS NÚMEROS DE SOMA IGUAL
+              SOMA ({(stats as any).somaTargetSum}): JOGAR NOS NÚMEROS DA MESMA SOMA
             </span>
             <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
@@ -152,7 +153,7 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
               <Target className="w-3.5 h-3.5 animate-pulse" />
             </div>
             <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
-              ASSINATURA DE DEALER (CLUSTER): {stats.signatureClusterTarget}
+              ASSINATURA DE DEALER: JOGAR NO {stats.signatureClusterTarget}
             </span>
             <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
@@ -209,7 +210,7 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
               <TrendingUp className="w-3.5 h-3.5 animate-pulse" />
             </div>
             <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
-              PADRÃO DE PING-PONG (Cores Alternadas) DETECTADO
+              PADRÃO DE PING-PONG (CORES ALTERNADAS)
             </span>
             <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>
@@ -228,7 +229,45 @@ export const AlertTracker: React.FC<AlertTrackerProps> = React.memo(({ stats }) 
               <Zap className="w-3.5 h-3.5 animate-pulse" />
             </div>
             <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
-              ALERTA DE CHAMADAS: {stats.callsAlerts.map(a => `${a.called} (${a.count}x)`).join(" | ")} PODE CHAMAR DE NOVO
+              CHAMADAS: {stats.callsAlerts.map(a => `${a.called} (${a.count}x)`).join(" | ")}
+            </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
+          </motion.div>
+        )}
+
+        {stats.terminalCallsAlerts && stats.terminalCallsAlerts.length > 0 && (
+          <motion.div
+            key="alert-terminal-calls"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-fuchsia-400"
+          >
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#d946ef_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-fuchsia-500/10 border-fuchsia-500/20">
+              <Zap className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
+              TERMINAL CHAMADO: {stats.terminalCallsAlerts.map(a => `FINAL ${a.terminal} (${a.count}x)`).join(" | ")}
+            </span>
+            <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
+          </motion.div>
+        )}
+
+        {(stats as any).zonaCallAlert && (
+          <motion.div
+            key="alert-zonacall"
+            initial={{ opacity: 0, x: 20, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="p-2 rounded-lg border border-white/10 shadow-2xl relative overflow-hidden group w-full flex items-center space-x-2 transition-colors bg-black/80 text-green-400"
+          >
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(ellipse_at_top,_#4ade80_0%,_transparent_70%)]" />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border relative z-10 bg-green-500/10 border-green-500/20">
+              <PieChart className="w-3.5 h-3.5 animate-pulse" />
+            </div>
+            <span className="flex-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest leading-snug drop-shadow-md relative z-10 text-left">
+              O NÚMERO {(stats as any).zonaCallNumber} CHAMA A ZONA {((stats as any).zonaCallZone || "").toUpperCase()}
             </span>
             <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 w-full" />
           </motion.div>

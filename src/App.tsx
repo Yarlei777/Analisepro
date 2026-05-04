@@ -143,13 +143,13 @@ export default function App() {
     if ((stats as any).vacuumAlerts && (stats as any).vacuumAlerts.length > 0) {
       alerts.push({
         id: 'vacuum', type: 'vacuum',
-        message: `ALERTA DE VÁCUO: Buracos detectados! Jogar nos vizinhos de: ${(stats as any).vacuumAlerts.map((v: any) => v.num).join(", ")}`
+        message: `VÁCUO: JOGAR NOS VIZINHOS DO ${(stats as any).vacuumAlerts.map((v: any) => v.num).join(", ")}`
       });
     }
     if ((stats as any).stealingPhaseAlert) {
       alerts.push({
         id: 'steal', type: 'vacuum',
-        message: `⚠️ FASE DE RECOLHIMENTO ATIVA: O algoritmo detectou possível compensação. ALVO: ${(stats as any).stealingTarget ?? "---"} E VIZINHOS`
+        message: `FASE DE RECOLHIMENTO: JOGAR NO ${(stats as any).stealingTarget ?? "---"}`
       });
     }
     const targetMap = new Map<number, { id: string, name: string, defaultMessage: string, type: string }[]>();
@@ -163,22 +163,29 @@ export default function App() {
     };
 
     if (stats.omegaAlert) {
-      addSignal(stats.omegaTarget, 'omega', 'omega', 'Sinal Ômega', `CONVERGÊNCIA ÔMEGA DETECTADA: JOGAR NO ${stats.omegaTarget}`);
+      addSignal(stats.omegaTarget, 'omega', 'omega', 'Sinal Ômega', `CONVERGÊNCIA ÔMEGA: JOGAR NO ${stats.omegaTarget}`);
     }
     if (stats.sequenceAlert) {
-      addSignal(stats.sequenceTarget, 'seq', 'sequence', 'Padrão Histórico', `PADRÃO HISTÓRICO: O PRÓXIMO PODE SER ${stats.sequenceTarget}`);
+      addSignal(stats.sequenceTarget, 'seq', 'sequence', 'Padrão Histórico', `PADRÃO HISTÓRICO: JOGAR NO ${stats.sequenceTarget}`);
     }
     if ((stats as any).mirrorAlert) {
-      addSignal((stats as any).mirrorTarget, 'mirror', 'sequence', 'Espelho Magnético', `🪞 ESPELHO MAGNÉTICO: Jogue no alvo ${(stats as any).mirrorTarget} e vizinhos.`);
+      addSignal((stats as any).mirrorTarget, 'mirror', 'sequence', 'Espelho Magnético', `ESPELHO MAGNÉTICO: JOGAR NO ${(stats as any).mirrorTarget}`);
     }
     if ((stats as any).sandwichAlert) {
-      addSignal((stats as any).sandwichTarget, 'sandwich', 'sequence', 'Sanduíche Curto', `🥪 SANDUÍCHE CURTO ("Vai e Volta"): O alvo do meio é ${(stats as any).sandwichTarget}. Jogue nele!`);
+      addSignal((stats as any).sandwichTarget, 'sandwich', 'sequence', 'Sanduíche Curto', `SANDUÍCHE CURTO: JOGAR NO ${(stats as any).sandwichTarget}`);
     }
     if ((stats as any).twinRepeatAlert) {
-      addSignal((stats as any).twinRepeatTarget, 'twinrepeat', 'sequence', 'Dobradinha', `👯 DOBRADINHA: Número viciado ${(stats as any).twinRepeatTarget} detetado, proteja ou repita!`);
+      addSignal((stats as any).twinRepeatTarget, 'twinrepeat', 'sequence', 'Dobradinha', `DOBRADINHA: JOGAR NO ${(stats as any).twinRepeatTarget}`);
     }
     if (stats.biasDetected && stats.biasTarget !== null) {
-      addSignal(stats.biasTarget, 'bias', 'omega', 'Viés Estatístico', `VIÉS ESTATÍSTICO: Mesa com tendência ao número ${stats.biasTarget}`);
+      addSignal(stats.biasTarget, 'bias', 'omega', 'Viés Estatístico', `VIÉS ESTATÍSTICO: JOGAR NO ${stats.biasTarget}`);
+    }
+    if ((stats as any).zonaCallAlert) {
+      alerts.push({
+        id: 'zonacall',
+        type: 'zone',
+        message: `NÚMERO ${(stats as any).zonaCallNumber} CHAMA A ZONA ${((stats as any).zonaCallZone || "").toUpperCase()}`
+      });
     }
 
     // Process single-target grouping
@@ -189,7 +196,7 @@ export default function App() {
         alerts.push({
           id: `grouped-${targetNum}`,
           type: 'omega',
-          message: `🔥 MÚLTIPLAS ANÁLISES PARA O ${targetNum} (${signalNames})`
+          message: `SINAIS MÚLTIPLOS: JOGAR NO ${targetNum}`
         });
       } else {
         alerts.push({
@@ -204,14 +211,14 @@ export default function App() {
       const targets = (stats as any).zonaFaltaTargets;
       alerts.push({
         id: 'zonaFalta', type: 'sequence',
-        message: `🔥 SUPER CONFLUÊNCIA! Coluna e Dúzia em falta. ROXO FORTE nos alvos da interseção: ${targets.join(", ")}!`
+        message: `SUPER CONFLUÊNCIA: JOGAR NO ${targets.join(", ")}`
       });
     }
     if ((stats as any).doublePatternAlert && (stats as any).doublePatternTargets && (stats as any).doublePatternTargets.length > 0) {
       const targetsStr = (stats as any).doublePatternTargets.join(" e ");
       alerts.push({
         id: 'double', type: 'sequence',
-        message: `PADRÃO DE DUPLO RECENTE ALVO: ${targetsStr}`
+        message: `PADRÃO DE DUPLO: JOGAR NO ${targetsStr}`
       });
     }
     if ((stats as any).streakAlert && (stats as any).streakTargets && (stats as any).streakTargets.length > 0) {
@@ -225,26 +232,26 @@ export default function App() {
       alerts.push({
         id: 'streak', type: 'sequence',
         message: len >= 4 
-          ? `🔥 ALTA CHANCE (4+ de ${type}): Sequência engatada. JOGAR EM: ${targetsStr}` 
-          : `⚠️ AVISO (3 de ${type}): Padrão se formando. POSSÍVEL ALVO: ${targetsStr}`
+          ? `SEQUÊNCIA DE ${(type || "").toUpperCase()}: JOGAR EM ${targetsStr}` 
+          : `PADRÃO DE ${(type || "").toUpperCase()}: JOGAR EM ${targetsStr}`
       });
     }
     if ((stats as any).zeroVortexAlert && (stats as any).zeroTargets.length > 0) {
       alerts.push({
         id: 'zerovortex', type: 'omega',
-        message: `🌪️ VÓRTICE DO ZERO: Jogue nos vizinhos e atratores de ${(stats as any).zeroTargets.join(", ")}!`
+        message: `VÓRTICE DO ZERO: JOGAR NO ${(stats as any).zeroTargets.join(", ")}`
       });
     }
     if ((stats as any).hotTerminalAlert && (stats as any).hotTerminalGroup !== -1) {
       alerts.push({
         id: 'hotterminal', type: 'sequence',
-        message: `🔥 TERMINAL QUENTE: Finais ${(stats as any).hotTerminalGroup} estão cíclicos!`
+        message: `TERMINAL QUENTE: JOGAR NOS FINAIS ${(stats as any).hotTerminalGroup}`
       });
     }
     if ((stats as any).signatureClusterAlert && (stats as any).signatureClusterTarget) {
       alerts.push({
         id: 'signature', type: 'omega',
-        message: `🎯 CLUSTER DE ASSINATURA: O crupiê tem forte tendência na zona ${(stats as any).signatureClusterTarget}!`
+        message: `ASSINATURA DE DEALER: JOGAR NO ${(stats as any).signatureClusterTarget}`
       });
     }
     return alerts;
@@ -357,6 +364,7 @@ export default function App() {
       const isStreak = streakTargets.some((t: number) => getNeighbors(t, 1).includes(num));
       const isOmega = stats.omegaTarget !== null && getNeighbors(stats.omegaTarget, 1).includes(num);
       const isCallsAlert = (stats as any).callsAlerts && (stats as any).callsAlerts.some((c: any) => getNeighbors(c.called, 1).includes(num));
+      const isTerminalCallsAlert = (stats as any).terminalCallsAlerts && (stats as any).terminalCallsAlerts.some((c: any) => (num % 10) === c.terminal);
 
       if (
         isTarget ||
@@ -369,6 +377,7 @@ export default function App() {
         isDoublePattern ||
         isStreak ||
         isCallsAlert ||
+        isTerminalCallsAlert ||
         isOmega
       ) {
         list.add(num);

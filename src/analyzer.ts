@@ -29,6 +29,10 @@ export function analyzeHistory(
     zonaFaltaSuper: false,
     omegaAlert: false,
     omegaTarget: null as number | null,
+    zonaCallAlert: false,
+    zonaCallNumber: null as number | null,
+    zonaCallZone: "",
+    zonaCallCount: 0,
     sequenceAlert: false,
     sequenceTarget: null as number | null,
     timeMirrorAlert: false,
@@ -55,6 +59,7 @@ export function analyzeHistory(
     mirrorAlert: false,
     mirrorTarget: null as number | null,
     callsAlerts: [] as { called: number; count: number }[],
+    terminalCallsAlerts: [] as { terminal: number; count: number }[],
     lastPattern: "---" as string,
     biasDetected: false,
     biasTarget: null as number | null,
@@ -441,11 +446,15 @@ export function analyzeHistory(
   if (history.length > 1) {
     const current = history[0];
     const callsCount: Record<number, number> = {};
+    const terminalCallsCount: Record<number, number> = {};
     // Verifica todas as vezes que o número atual apareceu e qual número veio DEPOIS (index - 1)
     for (let i = 1; i < history.length - 1; i++) {
         if (history[i] === current) {
            const calledNumber = history[i - 1];
            callsCount[calledNumber] = (callsCount[calledNumber] || 0) + 1;
+
+           const calledTerminal = calledNumber % 10;
+           terminalCallsCount[calledTerminal] = (terminalCallsCount[calledTerminal] || 0) + 1;
         }
     }
     const alerts: { called: number; count: number }[] = [];
@@ -455,6 +464,14 @@ export function analyzeHistory(
          }
     });
     stats.callsAlerts = alerts;
+
+    const terminalAlerts: { terminal: number; count: number }[] = [];
+    Object.entries(terminalCallsCount).forEach(([terminalStr, count]) => {
+         if (count >= 3) {
+             terminalAlerts.push({ terminal: parseInt(terminalStr), count });
+         }
+    });
+    stats.terminalCallsAlerts = terminalAlerts;
   }
 
   // Terminals frequency
@@ -524,6 +541,12 @@ export function analyzeHistory(
     if (isCalledAlert) {
       s.score += 25; // Alta pontuação para chamadas > 3 vezes
       s.reasons.push(`Chamada Frequente (${lastNum} chamou ${s.num} ${isCalledAlert.count}x)`);
+    }
+
+    const isTerminalCalledAlert = stats.terminalCallsAlerts.find((c) => c.terminal === (s.num % 10));
+    if (isTerminalCalledAlert && s.num !== lastNum) {
+      s.score += 15;
+      s.reasons.push(`Terminal Chamado (${lastNum} chamou final ${s.num % 10} ${isTerminalCalledAlert.count}x)`);
     }
 
     // CAMADA 3: Calor e Momentum (Heatmap)
@@ -1444,7 +1467,9 @@ export function analyzeHistory(
     // --- Sinergia com Fase de Recolhimento e Mesa Maluca ---
     if ((isStealingPhase || stats.crazyTable) && scores) {
       stats.stealingPhaseAlert = true;
-      const hole = scores[scores.length - 1].num; // Pega o buraco mais profundo
+      const isRepeatingPattern = history.length > 1 && history[0] === history[1];
+      const validScores = isRepeatingPattern ? scores : scores.filter(s => s.num !== history[0]);
+      const hole = validScores.length > 0 ? validScores[validScores.length - 1].num : scores[scores.length - 1].num; // Pega o buraco mais profundo
       stats.stealingTarget = hole;
       
       // Se tiver anomalia balística mesmo em fase ruim, confia no sinal verde
@@ -1496,6 +1521,44 @@ export function analyzeHistory(
       if (targets.length === 0 && prevAnalysis.targets.length > 0) {
         targets = [...prevAnalysis.targets];
       }
+    }
+  }
+
+  // --- ZONA CALL ALERT ---
+  if (!isRecursive && history.length > 5) {
+    const lastNum = history[0];
+    const zoneCallsCount: Record<string, number> = { "Voisins": 0, "Orphelins": 0, "Tiers": 0 };
+    
+    for (let i = 1; i < history.length; i++) {
+      if (history[i] === lastNum) {
+        const calledNum = history[i - 1]; // o número que saiu LOGO APÓS ele
+        let foundZone = "";
+        for (const [zName, zNums] of Object.entries(sectorDefs)) {
+          if (zName !== "Jeu Zero" && zNums.includes(calledNum)) {
+            foundZone = zName;
+            break;
+          }
+        }
+        if (foundZone) {
+          zoneCallsCount[foundZone]++;
+        }
+      }
+    }
+
+    let bestZone = "";
+    let bestCount = 0;
+    for (const [z, c] of Object.entries(zoneCallsCount)) {
+      if (c >= 3 && c > bestCount) {
+        bestCount = c;
+        bestZone = z;
+      }
+    }
+
+    if (bestZone !== "") {
+      stats.zonaCallAlert = true;
+      stats.zonaCallNumber = lastNum;
+      stats.zonaCallZone = bestZone;
+      stats.zonaCallCount = bestCount;
     }
   }
 
