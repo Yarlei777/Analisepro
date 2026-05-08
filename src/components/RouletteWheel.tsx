@@ -26,7 +26,11 @@ interface RouletteWheelProps {
   streakTargets?: number[];
   zonaFaltaTargets?: number[];
   zonaFaltaSuper?: boolean;
+  repeatedPatternTargets?: number[];
+  binaryTerminalAlert?: boolean;
+  binaryTerminalTargets?: number[];
   onDismissSignal?: () => void;
+  className?: string;
 }
 
 export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
@@ -48,7 +52,11 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
     streakTargets = [],
     zonaFaltaTargets = [],
     zonaFaltaSuper = false,
+    repeatedPatternTargets = [],
+    binaryTerminalAlert = false,
+    binaryTerminalTargets = [],
     onDismissSignal,
+    className,
   }) => {
     // Racetrack geometry constants
     const R = 105;
@@ -156,31 +164,6 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                 result="shadow"
               />
               <feComposite operator="over" in="shadow" in2="SourceGraphic" />
-            </filter>
-
-            <filter id="glowYellow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-
-            <filter id="glowGreen">
-              <feGaussianBlur stdDeviation="6" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-
-            <filter id="glowPurple">
-              <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
             </filter>
           </defs>
 
@@ -358,8 +341,10 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             const isSomaTarget = somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
             const isDoublePattern = doublePatternTargets.some((t) => getNeighbors(t, 1).includes(num));
             const isStreak = streakTargets.some((t) => getNeighbors(t, 1).includes(num));
+            const isRepeatedPattern = repeatedPatternTargets.some((t) => getNeighbors(t, 1).includes(num));
+            const isBinaryTerminalTarget = binaryTerminalAlert && binaryTerminalTargets.includes(num);
 
-            const isOmega = omegaTarget !== null && getNeighbors(omegaTarget, 3).includes(num);
+            const isOmega = omegaTarget !== null && getNeighbors(omegaTarget, 4).includes(num);
             const isLast = lastNumber === num;
             const isLastNeighbor = lastNumber !== undefined && getNeighbors(lastNumber, 1).includes(num) && !isLast;
 
@@ -373,6 +358,8 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               isSomaTarget ||
               isDoublePattern ||
               isStreak ||
+              isRepeatedPattern ||
+              isBinaryTerminalTarget ||
               isLast ||
               isLastNeighbor;
 
@@ -386,17 +373,15 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
               <g key={`text-${num}`}>
                 {/* Zonas em Falta Override Highlight */}
                 {isZonaFaltaFocus && (
-                  <g filter="url(#glowPurple)">
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="16"
-                      fill="rgba(168, 85, 247, 0.4)"
-                      stroke="#a855f7"
-                      strokeWidth="3"
-                      className="pointer-events-none"
-                    />
-                  </g>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(249, 115, 22, 0.3)"
+                    stroke="#f97316"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]"
+                  />
                 )}
 
                 {/* Last Result Highlight (Subtle) */}
@@ -412,49 +397,56 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                   />
                 )}
 
-                {/* Omega Highlight (Softer Blue) */}
+                {/* Omega Highlight (Softer Blue -> Now Orange) */}
                 {isOmega && !isZonaFaltaFocus && (
-                  <g filter="url(#glowGreen)">
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="18"
-                      fill="rgba(56, 189, 248, 0.15)"
-                      stroke="rgba(56, 189, 248, 0.6)"
-                      strokeWidth="2"
-                      className="pointer-events-none"
-                    />
-                  </g>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="18"
+                    fill="rgba(249, 115, 22, 0.3)"
+                    stroke="#f97316"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]"
+                  />
                 )}
 
                 {/* Orange Highlight for Quebra/Robbery */}
                 {isQuebra && !isOmega && !isZonaFaltaFocus && (
-                  <g filter="url(#glowYellow)">
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="16"
-                      fill="rgba(249, 115, 22, 0.3)"
-                      stroke="#f97316"
-                      strokeWidth="2.5"
-                      className="pointer-events-none"
-                    />
-                  </g>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(249, 115, 22, 0.3)"
+                    stroke="#f97316"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]"
+                  />
+                )}
+
+                {/* Red Highlight for Repeated Pattern */}
+                {isRepeatedPattern && !isQuebra && !isOmega && !isZonaFaltaFocus && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(255, 0, 0, 0.4)"
+                    stroke="#ff0000"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(255,0,0,0.6)]"
+                  />
                 )}
 
                 {/* General Target Highlight with Neon Green Glow */}
-                {isAnyYellowTarget && !isOmega && !isQuebra && !isZonaFaltaFocus && (
-                  <g filter="url(#glowYellow)">
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="16"
-                      fill="rgba(57, 255, 20, 0.3)"
-                      stroke="#39ff14"
-                      strokeWidth="2.5"
-                      className="pointer-events-none"
-                    />
-                  </g>
+                {isAnyYellowTarget && !isRepeatedPattern && !isOmega && !isQuebra && !isZonaFaltaFocus && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(57, 255, 20, 0.3)"
+                    stroke="#39ff14"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(57,255,20,0.6)]"
+                  />
                 )}
 
                 {/* Precise Text Render */}
@@ -462,17 +454,19 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                   x={x}
                   y={y}
                   fill="white"
-                  fontSize={isZonaFaltaFocus ? "19" : isOmega ? "19" : isQuebra ? "16" : isAnyYellowTarget ? "16" : "13"}
+                  fontSize={isRepeatedPattern ? "18" : isZonaFaltaFocus ? "19" : isOmega ? "19" : isQuebra ? "16" : isAnyYellowTarget ? "16" : "13"}
                   fontWeight="900"
                   fontFamily="Inter, sans-serif"
                   textAnchor="middle"
                   alignmentBaseline="central"
                   className={cn(
                     "pointer-events-none transition-all duration-300",
-                    isZonaFaltaFocus
-                      ? "fill-purple-300 drop-shadow-[0_0_12px_rgba(168,85,247,1)]"
+                    isRepeatedPattern
+                      ? "fill-red-400 brightness-150 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]"
+                      : isZonaFaltaFocus
+                      ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
                       : isOmega
-                        ? "fill-sky-300 drop-shadow-[0_0_8px_rgba(125,211,252,0.8)]"
+                        ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
                         : isQuebra
                           ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
                           : isAnyYellowTarget
@@ -498,10 +492,15 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
       timeMirrorTarget,
       somaAlert,
       somaTargetSum,
+      doublePatternTargets.join(","),
+      streakTargets.join(","),
+      repeatedPatternTargets.join(","),
+      zonaFaltaTargets.join(","),
+      zonaFaltaSuper,
     ]);
 
     return (
-      <div className="relative w-full max-w-[340px] mx-auto aspect-[34/74] flex items-center justify-center select-none lg:max-h-[85vh]">
+      <div className={cn("relative w-full max-w-[340px] mx-auto aspect-[34/74] flex items-center justify-center select-none lg:max-h-[85vh]", className)}>
         {/* Play Signal Lightning Bolt */}{" "}
         <div
           className={cn(

@@ -187,7 +187,7 @@ export default function App() {
         message: `NÚMERO ${(stats as any).zonaCallNumber} CHAMA A ZONA ${((stats as any).zonaCallZone || "").toUpperCase()}`
       });
     }
-
+    
     // Process single-target grouping
     targetMap.forEach((signals, targetNum) => {
       if (signals.length >= 2) {
@@ -365,6 +365,8 @@ export default function App() {
       const isOmega = stats.omegaTarget !== null && getNeighbors(stats.omegaTarget, 1).includes(num);
       const isCallsAlert = (stats as any).callsAlerts && (stats as any).callsAlerts.some((c: any) => getNeighbors(c.called, 1).includes(num));
       const isTerminalCallsAlert = (stats as any).terminalCallsAlerts && (stats as any).terminalCallsAlerts.some((c: any) => (num % 10) === c.terminal);
+      const repeatedTargets = (stats as any).repeatedPatternTargets || [];
+      const isRepeatedPattern = repeatedTargets.some((t: number) => getNeighbors(t, 1).includes(num));
 
       if (
         isTarget ||
@@ -378,6 +380,7 @@ export default function App() {
         isStreak ||
         isCallsAlert ||
         isTerminalCallsAlert ||
+        isRepeatedPattern ||
         isOmega
       ) {
         list.add(num);
@@ -463,9 +466,8 @@ export default function App() {
         <div className="flex items-center justify-between mb-4 relative z-10 px-2 md:px-0">
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <div className="absolute -inset-1.5 bg-gold/30 rounded-full blur-lg animate-pulse" />
               <motion.div
-                className="relative w-10 h-10 rounded-full gold-gradient flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.4)] border border-white/30"
+                className="relative w-10 h-10 rounded-full gold-gradient flex items-center justify-center shadow-lg border border-white/30"
                 animate={{ rotate: 360 }}
                 transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
               >
@@ -609,8 +611,8 @@ export default function App() {
               />
 
               <div className="relative group mt-3 mb-6">
-                <div className="absolute -inset-4 bg-gold/10 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 <RouletteWheel
+                  className="max-w-[220px] sm:max-w-[260px] md:max-w-[280px]"
                   targets={combinedTargets}
                   lastNumber={history[0]}
                   quebraTarget={stats.quebraTarget}
@@ -630,6 +632,9 @@ export default function App() {
                   streakTargets={(stats as any).streakTargets || EMPTY_ARRAY}
                   zonaFaltaTargets={(stats as any).zonaFaltaTargets || EMPTY_ARRAY}
                   zonaFaltaSuper={(stats as any).zonaFaltaSuper || false}
+                  repeatedPatternTargets={(stats as any).repeatedPatternTargets || EMPTY_ARRAY}
+                  binaryTerminalAlert={(stats as any).binaryTerminalAlert || false}
+                  binaryTerminalTargets={(stats as any).binaryTerminalTargets || EMPTY_ARRAY}
                   onDismissSignal={dismissSignal}
                 />
               </div>
@@ -753,6 +758,9 @@ export default function App() {
                 streakTargets={(stats as any).streakTargets || EMPTY_ARRAY}
                 zonaFaltaTargets={(stats as any).zonaFaltaTargets || EMPTY_ARRAY}
                 zonaFaltaSuper={(stats as any).zonaFaltaSuper || false}
+                repeatedPatternTargets={(stats as any).repeatedPatternTargets || EMPTY_ARRAY}
+                binaryTerminalAlert={(stats as any).binaryTerminalAlert || false}
+                binaryTerminalTargets={(stats as any).binaryTerminalTargets || EMPTY_ARRAY}
                 onDismissSignal={dismissSignal}
               />
             </div>

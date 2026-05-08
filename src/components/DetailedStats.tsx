@@ -244,7 +244,6 @@ export const DetailedStats: React.FC<DetailedStatsProps> = React.memo(({ stats }
       </div>
 
       <div className="glass-panel p-4 space-y-4 border-blue-500/20 flex flex-col mt-4 relative overflow-hidden">
-         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -z-10" />
          <div className="flex items-center space-x-3 border-b border-white/5 pb-2">
             <Target className="w-4 h-4 text-blue-400" />
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Detecções do Algoritmo</h3>

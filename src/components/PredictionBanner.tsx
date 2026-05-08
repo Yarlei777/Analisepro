@@ -25,7 +25,7 @@ export const PredictionBanner: React.FC<PredictionBannerProps> = React.memo(({ c
       <div className="flex flex-col sm:flex-row items-center justify-between gap-8 px-2 sm:px-4 relative z-10 py-2">
         {/* Futuristic Neural Tally Matrix - Centered horizontally in its own block if needed */}
         <div className="flex flex-col items-center">
-          <div className="flex items-center space-x-6 p-4 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-xl relative overflow-hidden group/tally">
+          <div className="flex items-center space-x-6 p-4 rounded-2xl bg-[#09090b] border border-white/10 relative overflow-hidden group/tally shadow-lg">
             {/* Animated Scanline Overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent h-1/2 w-full animate-scanline pointer-events-none" />
             
@@ -145,8 +145,7 @@ export const PredictionBanner: React.FC<PredictionBannerProps> = React.memo(({ c
 
       <div className="pt-4 mt-4 border-t border-white/5 relative z-10 w-full mb-2">
         <div className="w-full relative group cursor-default">
-          <div className="absolute inset-0 bg-emerald-500/5 blur-xl rounded-2xl transition-all duration-1000" />
-          <div className="bg-[#09090b]/80 border border-emerald-500/20 p-4 sm:p-5 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-2xl shadow-[0_10px_30px_rgba(16,185,129,0.1)]">
+          <div className="bg-[#0c0c0e] border border-emerald-500/30 p-4 sm:p-5 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden shadow-[0_4px_15px_rgba(16,185,129,0.1)]">
             <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,rgba(16,185,129,0.05)_50%,transparent)] bg-[length:100%_4px] opacity-30 pointer-events-none" />
             
             {ballistics.active && (
@@ -166,7 +165,7 @@ export const PredictionBanner: React.FC<PredictionBannerProps> = React.memo(({ c
               <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 w-full z-10">
                 <div className="relative">
                    <div className="absolute inset-0 border border-emerald-500/30 rounded-full animate-[ping_2s_ease-out_infinite]" />
-                   <div className="w-20 h-20 rounded-full border border-emerald-500/50 bg-emerald-500/5 flex items-center justify-center backdrop-blur-md relative shadow-[inset_0_0_15px_rgba(16,185,129,0.2)]">
+                   <div className="w-20 h-20 rounded-full border border-emerald-500/50 bg-[#09090b] flex items-center justify-center relative shadow-[inset_0_0_15px_rgba(16,185,129,0.2)]">
                       <div className="absolute top-0 bottom-0 left-1/2 w-[1px] bg-emerald-500/30 -translate-x-1/2" />
                       <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-emerald-500/30 -translate-y-1/2" />
                       <div className="w-14 h-14 rounded-full bg-black/60 border border-emerald-500/30 flex items-center justify-center relative z-10 shadow-[0_0_20px_rgba(16,185,129,0.2)]">

@@ -33,6 +33,10 @@ export function analyzeHistory(
     zonaCallNumber: null as number | null,
     zonaCallZone: "",
     zonaCallCount: 0,
+    binaryTerminalAlert: false,
+    binaryTerminalName: "",
+    binaryTerminalTargets: [] as number[],
+    binaryTerminalCount: 0,
     sequenceAlert: false,
     sequenceTarget: null as number | null,
     timeMirrorAlert: false,
@@ -63,6 +67,10 @@ export function analyzeHistory(
     lastPattern: "---" as string,
     biasDetected: false,
     biasTarget: null as number | null,
+    repeatedPatternAlert: false,
+    repeatedPatternTargets: [] as number[],
+    repeatedPatternWindow: [] as number[],
+    repeatedPatternCount: 0,
     sectorConfidence: 0.0,
     zoneBiasAlert: false,
     zoneBiasTarget: "",
@@ -82,6 +90,7 @@ export function analyzeHistory(
     sleepingDozenCount: 0,
     sleepingColumnCount: 0,
     alternatingColorPattern: false,
+    alternatingColorCount: 0,
     colorStreak: 0,
     signatureClusterAlert: false,
     signatureClusterTarget: "---" as string,
@@ -487,6 +496,156 @@ export function analyzeHistory(
     stats.terminalRepeat = true;
   }
 
+  // --- 4.8 Padrão Repetido/Embolado (Repeated Pattern Validation) ---
+  const localMirrors: Record<number, number> = {
+    12: 21, 21: 12,
+    13: 31, 31: 13,
+    23: 32, 32: 23,
+    6: 9, 9: 6,
+    16: 19, 19: 16,
+    26: 29, 29: 26,
+  };
+  const getEquivs = (n: number) => localMirrors[n] !== undefined ? [n, localMirrors[n]] : [n];
+
+  const findPatternMatches = (slice: number[]) => {
+    if (slice.length < 7) return [];
+    const curr = slice.slice(0, 3);
+    const matches = [];
+
+    for (let i = 1; i <= Math.min(slice.length - 4, 100); i++) {
+      const w = slice.slice(i, i + 4);
+      let matchedIndices = new Set<number>();
+      let allMatched = true;
+      for (let c of curr) {
+        const equivs = getEquivs(c);
+        let foundMatch = false;
+        for (let j = 0; j < 4; j++) {
+          if (!matchedIndices.has(j) && equivs.includes(w[j])) {
+            matchedIndices.add(j);
+            foundMatch = true;
+            break;
+          }
+        }
+        if (!foundMatch) {
+           allMatched = false;
+           break;
+        }
+      }
+      if (allMatched && matchedIndices.size === 3) {
+         let targetIndex = -1;
+         for (let j = 0; j < 4; j++) {
+            if (!matchedIndices.has(j)) {
+               targetIndex = j;
+               break;
+            }
+         }
+         if (targetIndex !== -1) {
+            matches.push({
+               index: i,
+               target: getEquivs(w[targetIndex]),
+               window: [...w].reverse()
+            });
+         }
+      }
+    }
+    return matches;
+  };
+
+  if (history.length >= 7) {
+    let bestL = 0;
+    let fallbackTargets: number[] = [];
+    let fallbackWindow: number[] = [];
+    let matchCount = 0;
+
+    // Track unbroken sequence backwards
+    for (let L = 5; L >= 0; L--) {
+      if (history.length < 7 + L) continue;
+      const matches = findPatternMatches(history.slice(L));
+      let validSequenceFound = false;
+
+      for (const match of matches) {
+         let unbroken = true;
+         // Verify if the sequence held up for L steps
+         let currentIndex = match.index; // index within history.slice(L)
+
+         for (let step = 0; step < L; step++) {
+            // Step 0 predicts history[L-1]. 
+            // In history.slice(L), the historical time that corresponds to this prediction is history.slice(L)[currentIndex - 1] = history[L + currentIndex - 1].
+            let targetHistoricalIndex = L + currentIndex - step - 1;
+            
+            let targetsForStep = step === 0 ? match.target : getEquivs(history[targetHistoricalIndex + 1]); 
+            // For step > 0, the target is the reflection of the historical outcome
+            const actualHit = history[L - 1 - step];
+            
+            const isHit = targetsForStep.some(t => getNeighbors(t, 1).includes(actualHit));
+            if (!isHit) {
+               unbroken = false;
+               break;
+            }
+         }
+
+         if (unbroken) {
+            validSequenceFound = true;
+            matchCount++;
+            
+            if (L === 0) {
+               fallbackTargets = match.target;
+            } else {
+               // The next target is the one that historically follows the last matched step
+               // The last matched step was predicting history[0] (i.e. step = L - 1)
+               // The historical outcome that predicted it was history[L + currentIndex - (L - 1) - 1] = history[currentIndex] 
+               // Wait, the next prediction is always history[currentIndex - 1] relative to the *last* historical step, meaning history[currentIndex - L].
+               let targetHistoricalIndex = currentIndex - L;
+               if (targetHistoricalIndex >= 0) {
+                  fallbackTargets = getEquivs(history[targetHistoricalIndex]);
+               } else {
+                  unbroken = false; // we ran out of history
+                  continue;
+               }
+            }
+            fallbackWindow = match.window;
+            bestL = L;
+            break; // found at least one for this L
+         }
+      }
+
+      if (validSequenceFound) {
+         break; // We found the longest unbroken sequence!
+      }
+    }
+
+    if (matchCount > 0) {
+      stats.repeatedPatternAlert = true;
+      stats.repeatedPatternCount = bestL > 0 ? bestL + 1 : matchCount; // If sequence is > 0, count is sequence length
+      stats.repeatedPatternTargets = fallbackTargets;
+      stats.repeatedPatternWindow = fallbackWindow;
+    }
+
+    // --- 4.9 Isca / Padrão Teasing (Bait Pattern) ---
+    // Se o último número (history[0]) foi uma "isca" para um padrão que estava armando
+    // na rodada anterior (history.slice(1))
+    if (history.length >= 8 && bestL === 0 && matchCount === 0) {
+      const prevMatches = findPatternMatches(history.slice(1));
+      if (prevMatches.length > 0) {
+         const iscaNum = history[0];
+         let allPrevTargets: number[] = [];
+         prevMatches.forEach(m => allPrevTargets.push(...m.target));
+         
+         const isBait = allPrevTargets.some(t => {
+            const diff = Math.abs(t - iscaNum);
+            return diff === 1 || diff === 3 || iscaNum === 0 || t === 0 || (t % 10 === iscaNum % 10);
+         });
+
+         if (isBait && !allPrevTargets.includes(iscaNum)) {
+            stats.repeatedPatternAlert = true;
+            stats.repeatedPatternCount = prevMatches.length; 
+            stats.repeatedPatternTargets = Array.from(new Set([...stats.repeatedPatternTargets, ...allPrevTargets]));
+            stats.repeatedPatternWindow = prevMatches[0].window;
+         }
+      }
+    }
+  }
+
   // --- 5. Detecção de Quebra Balística (O "Roubo") ---
   const currentQuebra = checkQuebraAt(0); // Quebra no último lance
   if (currentQuebra) {
@@ -549,6 +708,23 @@ export function analyzeHistory(
       s.reasons.push(`Terminal Chamado (${lastNum} chamou final ${s.num % 10} ${isTerminalCalledAlert.count}x)`);
     }
 
+    // CAMADA BINÁRIA DE TERMINAIS
+    if (stats.binaryTerminalAlert && stats.binaryTerminalTargets.includes(s.num)) {
+      s.score += 30; // Alta relevância para padrão de terminais
+      s.reasons.push(`Padrão Binário de Terminal (Grupo ${stats.binaryTerminalName})`);
+    }
+
+    // CAMADA PADRÃO EMBOLADO
+    if (stats.repeatedPatternAlert && stats.repeatedPatternTargets.includes(s.num)) {
+      if (stats.repeatedPatternCount > 1) {
+         s.score += 50; 
+         s.reasons.push(`Padrão Embolado FORTE Encontrado (${stats.repeatedPatternCount}x no Histórico)`);
+      } else {
+         s.score += 35;
+         s.reasons.push("Padrão Embolado / Espelho Encontrado no Histórico");
+      }
+    }
+
     // CAMADA 3: Calor e Momentum (Heatmap)
     const heat = history.slice(0, 15).filter((n) => n === s.num).length;
     if (heat > 1) {
@@ -600,11 +776,13 @@ export function analyzeHistory(
     }
 
     // CAMADA 8: Vizinhos Históricos
-    const historyMates = history
-      .slice(1, 20)
-      .filter(
-        (n, i) => history[i] === lastNum && history[i - 1] === s.num,
-      ).length;
+    let historyMates = 0;
+    for (let k = 1; k < Math.min(20, history.length - 1); k++) {
+       // k é o índice do número passado. (k - 1) é o número que veio APÓS ele.
+       if (history[k] === lastNum && history[k - 1] === s.num) {
+           historyMates++;
+       }
+    }
     if (historyMates > 0) {
       s.score += historyMates * 8;
       s.reasons.push("Parceiro Histórico");
@@ -1204,9 +1382,9 @@ export function analyzeHistory(
     const idx = ROULETTE_NUMBERS.indexOf(num);
     const isThisOmega = stats.omegaAlert && stats.omegaTarget === num;
 
-    // Se for Alvo Ômega (azul), ganha 3 vizinhos para cada lado
+    // Se for Alvo Ômega (azul), ganha 4 vizinhos para cada lado
     if (isThisOmega) {
-      for (let offset = 1; offset <= 3; offset++) {
+      for (let offset = 1; offset <= 4; offset++) {
         expandedTargets.add(ROULETTE_NUMBERS[(idx + offset) % 37]);
         expandedTargets.add(ROULETTE_NUMBERS[(idx - offset + 37) % 37]);
       }
@@ -1305,8 +1483,9 @@ export function analyzeHistory(
         }
       }
     }
-    if (alternatingCount >= 3) {
+    if (alternatingCount >= 4) { // 4 alternations = 5 numbers
       stats.alternatingColorPattern = true;
+      stats.alternatingColorCount = alternatingCount + 1; // Number of alternating colors
     }
 
     let streakCount = 1;
@@ -1559,6 +1738,56 @@ export function analyzeHistory(
       stats.zonaCallNumber = lastNum;
       stats.zonaCallZone = bestZone;
       stats.zonaCallCount = bestCount;
+    }
+  }
+
+  // --- Análise de Grupos de Terminais (Código Binário de Terminais) ---
+  const terminalGroupsMap: Record<string, number[]> = {
+    "369": [3, 6, 9],
+    "147": [1, 4, 7],
+    "258": [2, 5, 8],
+    "158": [1, 5, 8],
+    "437": [3, 4, 7],
+    "0102030": [0],
+    
+    // Terminais Gêmeos (Irmãos de Distância 5)
+    "0_e_5": [0, 5],
+    "1_e_6": [1, 6],
+    "2_e_7": [2, 7],
+    "3_e_8": [3, 8],
+    "4_e_9": [4, 9],
+
+    // Terminais Espelhos (Soma = 10)
+    "1_e_9": [1, 9],
+    "2_e_8": [2, 8],
+    "3_e_7": [3, 7],
+    "4_e_6": [4, 6]
+  };
+
+  if (history.length >= 3) {
+    let bestBinaryGroup = "";
+    let binaryGroupCount = 0;
+    
+    for (const [groupName, terminals] of Object.entries(terminalGroupsMap)) {
+      let count = 0;
+      for (let i = 0; i < Math.min(20, history.length); i++) {
+        if (terminals.includes(history[i] % 10)) {
+          count++;
+        }
+      }
+      if (count >= 4 && count > binaryGroupCount) {
+        if (terminals.includes(history[0] % 10)) { // Must be currently active
+          binaryGroupCount = count;
+          bestBinaryGroup = groupName;
+        }
+      }
+    }
+
+    if (bestBinaryGroup !== "") {
+      stats.binaryTerminalAlert = true;
+      stats.binaryTerminalCount = binaryGroupCount;
+      stats.binaryTerminalName = bestBinaryGroup.replace(/_/g, " ").toUpperCase();
+      stats.binaryTerminalTargets = ROULETTE_NUMBERS.filter(n => terminalGroupsMap[bestBinaryGroup].includes(n % 10));
     }
   }
 
