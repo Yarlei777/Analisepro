@@ -139,121 +139,90 @@ export default function App() {
   const activeAlerts = useMemo(() => {
     const alerts: { id: string; type: string; message: string }[] = [];
     if (history.length < 28) return alerts; // Germination phase check
+    
+    const s = stats as any;
 
-    if ((stats as any).vacuumAlerts && (stats as any).vacuumAlerts.length > 0) {
-      alerts.push({
-        id: 'vacuum', type: 'vacuum',
-        message: `VÁCUO: JOGAR NOS VIZINHOS DO ${(stats as any).vacuumAlerts.map((v: any) => v.num).join(", ")}`
-      });
-    }
-    if ((stats as any).stealingPhaseAlert) {
+    // 1. RECOLHIMENTO / QUEBRA / ROUBO
+    if (s.stealingPhaseAlert) {
       alerts.push({
         id: 'steal', type: 'vacuum',
-        message: `FASE DE RECOLHIMENTO: JOGAR NO ${(stats as any).stealingTarget ?? "---"}`
+        message: `FASE DE RECOLHIMENTO: JOGAR NO ${s.stealingTarget ?? "---"}`
       });
     }
-    const targetMap = new Map<number, { id: string, name: string, defaultMessage: string, type: string }[]>();
-    
-    // Helper to add to map
-    const addSignal = (target: number | null | undefined, id: string, type: string, name: string, defaultMessage: string) => {
-      if (target !== null && target !== undefined) {
-        if (!targetMap.has(target)) targetMap.set(target, []);
-        targetMap.get(target)!.push({ id, type, name, defaultMessage });
-      }
-    };
+    if (s.quebraAlert && s.quebraTarget !== null) {
+      alerts.push({
+        id: 'quebra', type: 'vacuum',
+        message: `QUEBRA / ROUBO: JOGAR NO ${s.quebraTarget}`
+      });
+    }
+    if (s.robberyAlert && s.robberyGaps && s.robberyGaps.length > 0) {
+      alerts.push({
+        id: 'robbery', type: 'vacuum',
+        message: `RECOLHIMENTO (ROUBO): JOGAR NOS VIZINHOS DO ${s.robberyGaps.join(", ")}`
+      });
+    }
 
-    if (stats.omegaAlert) {
-      addSignal(stats.omegaTarget, 'omega', 'omega', 'Sinal Ômega', `CONVERGÊNCIA ÔMEGA: JOGAR NO ${stats.omegaTarget}`);
+    // 2. CÓDIGO BINÁRIO
+    if (s.binaryTerminalAlert && s.binaryTerminalTargets && s.binaryTerminalTargets.length > 0) {
+      alerts.push({
+        id: 'binary', type: 'omega',
+        message: `CÓDIGO BINÁRIO (${s.binaryTerminalName}): JOGAR NO ${s.binaryTerminalTargets.join(", ")}`
+      });
     }
-    if (stats.sequenceAlert) {
-      addSignal(stats.sequenceTarget, 'seq', 'sequence', 'Padrão Histórico', `PADRÃO HISTÓRICO: JOGAR NO ${stats.sequenceTarget}`);
+
+    // 3. ASSINATURA DE DEALER
+    if (s.signatureClusterAlert && s.signatureClusterTarget) {
+      alerts.push({
+        id: 'signature', type: 'omega',
+        message: `ASSINATURA DE DEALER: JOGAR NO ${s.signatureClusterTarget}`
+      });
     }
-    if ((stats as any).mirrorAlert) {
-      addSignal((stats as any).mirrorTarget, 'mirror', 'sequence', 'Espelho Magnético', `ESPELHO MAGNÉTICO: JOGAR NO ${(stats as any).mirrorTarget}`);
-    }
-    if ((stats as any).sandwichAlert) {
-      addSignal((stats as any).sandwichTarget, 'sandwich', 'sequence', 'Sanduíche Curto', `SANDUÍCHE CURTO: JOGAR NO ${(stats as any).sandwichTarget}`);
-    }
-    if ((stats as any).twinRepeatAlert) {
-      addSignal((stats as any).twinRepeatTarget, 'twinrepeat', 'sequence', 'Dobradinha', `DOBRADINHA: JOGAR NO ${(stats as any).twinRepeatTarget}`);
-    }
-    if (stats.biasDetected && stats.biasTarget !== null) {
-      addSignal(stats.biasTarget, 'bias', 'omega', 'Viés Estatístico', `VIÉS ESTATÍSTICO: JOGAR NO ${stats.biasTarget}`);
-    }
-    if ((stats as any).zonaCallAlert) {
+
+    // 4. NÚMEROS QUE CHAMAM ZONAS E TERMINAIS
+    if (s.zonaCallAlert) {
       alerts.push({
         id: 'zonacall',
         type: 'zone',
-        message: `NÚMERO ${(stats as any).zonaCallNumber} CHAMA A ZONA ${((stats as any).zonaCallZone || "").toUpperCase()}`
+        message: `NÚMERO ${s.zonaCallNumber} CHAMA A ZONA ${(s.zonaCallZone || "").toUpperCase()}`
       });
     }
-    
-    // Process single-target grouping
-    targetMap.forEach((signals, targetNum) => {
-      if (signals.length >= 2) {
-        // Group them!
-        const signalNames = signals.map(s => s.name).join(", ");
-        alerts.push({
-          id: `grouped-${targetNum}`,
-          type: 'omega',
-          message: `SINAIS MÚLTIPLOS: JOGAR NO ${targetNum}`
-        });
-      } else {
-        alerts.push({
-          id: signals[0].id,
-          type: signals[0].type,
-          message: signals[0].defaultMessage
-        });
-      }
-    });
+    if (s.callsAlerts && s.callsAlerts.length > 0) {
+      s.callsAlerts.forEach((ca: any) => {
+        if (ca.count >= 3) {
+          alerts.push({
+            id: `calls-${ca.called}`, type: 'zone',
+            message: `CHAMADA FORTE: ${history[0]} CHAMA O NÚMERO ${ca.called} (${ca.count}x)`
+          });
+        }
+      });
+    }
 
-    if ((stats as any).zonaFaltaAlert && (stats as any).zonaFaltaSuper) {
-      const targets = (stats as any).zonaFaltaTargets;
+    // 5. HISTÓRICO SENDO REPETIDO
+    if (s.repeatedPatternAlert && s.repeatedPatternTargets && s.repeatedPatternTargets.length > 0) {
       alerts.push({
-        id: 'zonaFalta', type: 'sequence',
-        message: `SUPER CONFLUÊNCIA: JOGAR NO ${targets.join(", ")}`
+        id: 'repeated', type: 'sequence',
+        message: `HISTÓRICO REPETIDO (PADRÃO): JOGAR NO ${s.repeatedPatternTargets.join(", ")}`
       });
     }
-    if ((stats as any).doublePatternAlert && (stats as any).doublePatternTargets && (stats as any).doublePatternTargets.length > 0) {
-      const targetsStr = (stats as any).doublePatternTargets.join(" e ");
+    if (s.timeMirrorAlert && s.timeMirrorTarget !== null) {
       alerts.push({
-        id: 'double', type: 'sequence',
-        message: `PADRÃO DE DUPLO: JOGAR NO ${targetsStr}`
+        id: 'timemirror', type: 'sequence',
+        message: `HISTÓRICO REPETIDO (ESPELHO TEMPORAL): JOGAR NO ${s.timeMirrorTarget}`
       });
     }
-    if ((stats as any).streakAlert && (stats as any).streakTargets && (stats as any).streakTargets.length > 0) {
-      const len = (stats as any).streakLength;
-      const type = (stats as any).streakType;
-      const targets = (stats as any).streakTargets;
-      let targetsStr = targets.join(", ");
-      if (type === "VIZINHOS" && targets.length > 0) {
-        targetsStr = `Região do ${targets[Math.floor(targets.length/2)]} (${targets.join(", ")})`;
-      }
+    if (stats.sequenceAlert && stats.sequenceTarget !== null) {
       alerts.push({
-        id: 'streak', type: 'sequence',
-        message: len >= 4 
-          ? `SEQUÊNCIA DE ${(type || "").toUpperCase()}: JOGAR EM ${targetsStr}` 
-          : `PADRÃO DE ${(type || "").toUpperCase()}: JOGAR EM ${targetsStr}`
+        id: 'sequence', type: 'sequence',
+        message: `PADRÃO HISTÓRICO (SEQ): JOGAR NO ${stats.sequenceTarget}`
       });
     }
-    if ((stats as any).zeroVortexAlert && (stats as any).zeroTargets.length > 0) {
-      alerts.push({
-        id: 'zerovortex', type: 'omega',
-        message: `VÓRTICE DO ZERO: JOGAR NO ${(stats as any).zeroTargets.join(", ")}`
-      });
-    }
-    if ((stats as any).hotTerminalAlert && (stats as any).hotTerminalGroup !== -1) {
+    if (s.hotTerminalAlert && s.hotTerminalGroup !== -1 && s.hotTerminalTargets) {
       alerts.push({
         id: 'hotterminal', type: 'sequence',
-        message: `TERMINAL QUENTE: JOGAR NOS FINAIS ${(stats as any).hotTerminalGroup}`
+        message: `HISTÓRICO REPETIDO: TERMINAL QUENTE ${s.hotTerminalGroup} (${s.hotTerminalTargets.join(", ")})`
       });
     }
-    if ((stats as any).signatureClusterAlert && (stats as any).signatureClusterTarget) {
-      alerts.push({
-        id: 'signature', type: 'omega',
-        message: `ASSINATURA DE DEALER: JOGAR NO ${(stats as any).signatureClusterTarget}`
-      });
-    }
+
     return alerts;
   }, [history.length, stats]);
 
@@ -635,6 +604,10 @@ export default function App() {
                   repeatedPatternTargets={(stats as any).repeatedPatternTargets || EMPTY_ARRAY}
                   binaryTerminalAlert={(stats as any).binaryTerminalAlert || false}
                   binaryTerminalTargets={(stats as any).binaryTerminalTargets || EMPTY_ARRAY}
+                  hotTerminalAlert={(stats as any).hotTerminalAlert || false}
+                  hotTerminalTargets={(stats as any).hotTerminalTargets || EMPTY_ARRAY}
+                  wheelHoleAlert={(stats as any).wheelHoleAlert || false}
+                  wheelHoleTargets={(stats as any).wheelHoleTargets || EMPTY_ARRAY}
                   onDismissSignal={dismissSignal}
                 />
               </div>
@@ -761,6 +734,10 @@ export default function App() {
                 repeatedPatternTargets={(stats as any).repeatedPatternTargets || EMPTY_ARRAY}
                 binaryTerminalAlert={(stats as any).binaryTerminalAlert || false}
                 binaryTerminalTargets={(stats as any).binaryTerminalTargets || EMPTY_ARRAY}
+                hotTerminalAlert={(stats as any).hotTerminalAlert || false}
+                hotTerminalTargets={(stats as any).hotTerminalTargets || EMPTY_ARRAY}
+                wheelHoleAlert={(stats as any).wheelHoleAlert || false}
+                wheelHoleTargets={(stats as any).wheelHoleTargets || EMPTY_ARRAY}
                 onDismissSignal={dismissSignal}
               />
             </div>

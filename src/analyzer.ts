@@ -48,6 +48,7 @@ export function analyzeHistory(
     sandwichTarget: null as number | null,
     hotTerminalAlert: false,
     hotTerminalGroup: -1,
+    hotTerminalTargets: [] as number[],
     zeroVortexAlert: false,
     zeroTargets: [] as number[],
     twinRepeatAlert: false,
@@ -94,6 +95,9 @@ export function analyzeHistory(
     colorStreak: 0,
     signatureClusterAlert: false,
     signatureClusterTarget: "---" as string,
+    wheelHoleAlert: false,
+    wheelHoleTargets: [] as number[],
+    wheelHoleGap: 0,
   };
 
   let confidence = 0;
@@ -209,17 +213,24 @@ export function analyzeHistory(
     }
 
     // --- Detecção de Terminais Quentes ---
-    if (history.length >= 5) {
-      const recentsTerm = history.slice(0, 5).map(n => n % 10);
+    if (history.length >= 10) {
+      const recentsTerm = history.slice(0, 10).map(n => n % 10);
       const termCounts = recentsTerm.reduce((acc, curr) => {
         acc[curr] = (acc[curr] || 0) + 1;
         return acc;
       }, {} as Record<number, number>);
       
-      const hotTwinMatch = Object.entries(termCounts).find(([_, count]) => count >= 2);
-      if (hotTwinMatch) {
+      const hotMatches = Object.entries(termCounts).filter(([_, count]) => count >= 3);
+      if (hotMatches.length > 0) {
         stats.hotTerminalAlert = true;
-        stats.hotTerminalGroup = parseInt(hotTwinMatch[0]);
+        stats.hotTerminalGroup = parseInt(hotMatches[0][0]);
+        
+        const allHotTargets = new Set<number>();
+        hotMatches.forEach(([termStr]) => {
+           ROULETTE_NUMBERS.filter(n => n % 10 === parseInt(termStr)).forEach(n => allHotTargets.add(n));
+        });
+        
+        stats.hotTerminalTargets = Array.from(allHotTargets);
       }
     }
 
@@ -1012,6 +1023,12 @@ export function analyzeHistory(
       s.score += 2;
     } // Leve preferência para quebrar terminal se estava repetindo
 
+    // CAMADA 28.5: Repetição Extrema de Terminais (Hot Terminal)
+    if (stats.hotTerminalAlert && stats.hotTerminalTargets.includes(s.num)) {
+      s.score += 45; // Alta prioridade para a repetição do terminal
+      s.reasons.push(`Alerta Antecipado: Repetição do Terminal ${stats.hotTerminalGroup}`);
+    }
+
     // CAMADA 31: Aceleração/Desaceleração do Rotor (Rotor Acceleration)
     if (history.length >= 4) {
       const d1 = getDist(history[1], history[0]); // distância do último giro
@@ -1353,34 +1370,86 @@ export function analyzeHistory(
 
   // --- 8. Expansão de Alvos Básica (1 vizinho) ---
   let primaryTargets = [...targets];
+  let strategyTargets: number[] = [];
+  
   if (stats.omegaAlert && stats.omegaTarget !== null) {
-    primaryTargets.push(stats.omegaTarget);
-  }
-  if (stats.sequenceAlert && stats.sequenceTarget !== null) {
-    primaryTargets.push(stats.sequenceTarget);
+    strategyTargets.push(stats.omegaTarget);
   }
   if (stats.quebraAlert && stats.quebraTarget !== null) {
-    primaryTargets.push(stats.quebraTarget);
+    strategyTargets.push(stats.quebraTarget);
   }
-  if (stats.mirrorAlert && stats.mirrorTarget !== null) {
-    primaryTargets.push(stats.mirrorTarget);
-  }
-  if (stats.sandwichAlert && stats.sandwichTarget !== null) {
-    primaryTargets.push(stats.sandwichTarget);
-  }
-  if (stats.zeroVortexAlert && stats.zeroTargets.length > 0) {
-    primaryTargets.push(...stats.zeroTargets);
+  if (stats.sequenceAlert && stats.sequenceTarget !== null) {
+    strategyTargets.push(stats.sequenceTarget);
   }
   if (stats.twinRepeatAlert && stats.twinRepeatTarget !== null) {
-    primaryTargets.push(stats.twinRepeatTarget);
+    strategyTargets.push(stats.twinRepeatTarget);
+  }
+  if (stats.sandwichAlert && stats.sandwichTarget !== null) {
+    strategyTargets.push(stats.sandwichTarget);
+  }
+  if (stats.repeatedPatternAlert && stats.repeatedPatternTargets.length > 0) {
+    strategyTargets.push(stats.repeatedPatternTargets[0]);
+  }
+  if (stats.zeroVortexAlert && stats.zeroTargets.length > 0) {
+    strategyTargets.push(stats.zeroTargets[0]);
   }
 
-  primaryTargets = Array.from(new Set(primaryTargets));
+  if (stats.hotTerminalAlert && stats.hotTerminalTargets.length > 0) {
+    strategyTargets.push(stats.hotTerminalTargets[0]); // Just pushing one is enough as the expansion will handle
+    // Actually, hotTerminalTargets is 4 numbers (like 4, 14, 24, 34). We might want them all?
+    // strategyTargets usually expands 1 neighbor. Let's just push them all.
+    strategyTargets.push(...stats.hotTerminalTargets);
+  }
+
+  // Pegamos as 4 estratégias mais fortes
+  strategyTargets = Array.from(new Set(strategyTargets)).slice(0, 4);
+
+  // O número que saiu e todos os selecionados ganham vizinhos
+  let numbersToExpand = [...targets, ...strategyTargets];
+  if (history.length > 0) {
+    numbersToExpand.push(history[0]);
+  }
   
-  const expandedTargets = new Set<number>(primaryTargets);
-  primaryTargets.forEach((num) => {
+  // --- Espelhos Diretos & Família do Zero ---
+  const directMirrors: Record<number, number> = {
+    12: 21,
+    21: 12,
+    32: 23,
+    23: 32,
+    16: 19,
+    19: 16,
+    26: 29,
+    29: 26,
+    6: 9,
+    9: 6,
+    31: 13,
+    13: 31,
+  };
+  const zeroGroup = [0, 10, 20, 30];
+  let hasZeroGroup = false;
+
+  const preExpanded = new Set(numbersToExpand);
+  numbersToExpand.forEach((num) => {
+    if (directMirrors[num] !== undefined) {
+      preExpanded.add(directMirrors[num]);
+    }
+    if (zeroGroup.includes(num)) {
+      hasZeroGroup = true;
+    }
+  });
+
+  if (hasZeroGroup) {
+    zeroGroup.forEach(z => preExpanded.add(z));
+  }
+  numbersToExpand = Array.from(preExpanded);
+
+  const expandedTargets = new Set<number>();
+  
+  numbersToExpand.forEach((num) => {
+    expandedTargets.add(num);
     const idx = ROULETTE_NUMBERS.indexOf(num);
     const isThisOmega = stats.omegaAlert && stats.omegaTarget === num;
+    const isThisRepeatedPattern = stats.repeatedPatternAlert && stats.repeatedPatternTargets.includes(num);
 
     // Se for Alvo Ômega (azul), ganha 4 vizinhos para cada lado
     if (isThisOmega) {
@@ -1388,8 +1457,14 @@ export function analyzeHistory(
         expandedTargets.add(ROULETTE_NUMBERS[(idx + offset) % 37]);
         expandedTargets.add(ROULETTE_NUMBERS[(idx - offset + 37) % 37]);
       }
+    } else if (isThisRepeatedPattern) {
+      // Padrão embolado / repetindo ganha 2 vizinhos
+      for (let offset = 1; offset <= 2; offset++) {
+        expandedTargets.add(ROULETTE_NUMBERS[(idx + offset) % 37]);
+        expandedTargets.add(ROULETTE_NUMBERS[(idx - offset + 37) % 37]);
+      }
     } else {
-      // Adiciona 1 vizinho de cada lado por padrão para os alvos normais
+      // Adiciona 1 vizinho de cada lado por padrão
       expandedTargets.add(ROULETTE_NUMBERS[(idx + 1) % 37]);
       expandedTargets.add(ROULETTE_NUMBERS[(idx - 1 + 37) % 37]);
       
@@ -1402,40 +1477,6 @@ export function analyzeHistory(
   });
 
   targets = Array.from(expandedTargets);
-
-  // --- 9. Espelhos Diretos ---
-  // Adiciona o espelho correspondente sem adicionar vizinhos a ele
-  const directMirrors: Record<number, number> = {
-    12: 21,
-    21: 12,
-    32: 23,
-    23: 32,
-    16: 19,
-    19: 16,
-    6: 9,
-    9: 6,
-    31: 13,
-    13: 31,
-  };
-
-  const finalTargets = new Set(targets);
-  let hasZeroGroup = false;
-  const zeroGroup = [0, 10, 20, 30];
-
-  targets.forEach((num) => {
-    if (directMirrors[num] !== undefined) {
-      finalTargets.add(directMirrors[num]);
-    }
-    if (zeroGroup.includes(num)) {
-      hasZeroGroup = true;
-    }
-  });
-
-  if (hasZeroGroup) {
-    zeroGroup.forEach(z => finalTargets.add(z));
-  }
-
-  targets = Array.from(finalTargets);
 
   // --- NEW: Análises Detalhadas (Dúzias, Colunas, Cores e Assinatura) ---
   if (!isRecursive && history.length > 0) {
@@ -1568,11 +1609,7 @@ export function analyzeHistory(
           }
         });
         stats.robberyGaps = gaps;
-        if (gaps.length > 0) {
-          gaps.forEach((g) => {
-            if (!targets.includes(g)) targets.push(g);
-          });
-        }
+        // Removido o push para targets para evitar preencher o cilindro com muitos números
       }
     }
   }
@@ -1768,14 +1805,17 @@ export function analyzeHistory(
     let bestBinaryGroup = "";
     let binaryGroupCount = 0;
     
+    const maxSpins = Math.min(20, history.length);
+    const threshold = Math.max(3, Math.floor(maxSpins * 0.35));
+
     for (const [groupName, terminals] of Object.entries(terminalGroupsMap)) {
       let count = 0;
-      for (let i = 0; i < Math.min(20, history.length); i++) {
+      for (let i = 0; i < maxSpins; i++) {
         if (terminals.includes(history[i] % 10)) {
           count++;
         }
       }
-      if (count >= 4 && count > binaryGroupCount) {
+      if (count >= threshold && count > binaryGroupCount) {
         if (terminals.includes(history[0] % 10)) { // Must be currently active
           binaryGroupCount = count;
           bestBinaryGroup = groupName;
@@ -1787,9 +1827,60 @@ export function analyzeHistory(
       stats.binaryTerminalAlert = true;
       stats.binaryTerminalCount = binaryGroupCount;
       stats.binaryTerminalName = bestBinaryGroup.replace(/_/g, " ").toUpperCase();
-      stats.binaryTerminalTargets = ROULETTE_NUMBERS.filter(n => terminalGroupsMap[bestBinaryGroup].includes(n % 10));
+      
+      let allTargets = ROULETTE_NUMBERS.filter(n => terminalGroupsMap[bestBinaryGroup].includes(n % 10));
+      let bestTarget = allTargets[0];
+      let currentMaxScore = -1;
+      
+      allTargets.forEach(num => {
+         const tScore = scores.find(s => s.num === num)?.score || 0;
+         if (tScore > currentMaxScore) {
+             currentMaxScore = tScore;
+             bestTarget = num;
+         }
+      });
+      
+      stats.binaryTerminalTargets = [bestTarget];
     }
   }
+
+  // --- Wheel Hole Detection (Find largest unlit area on the wheel) ---
+  if (targets.length > 0 && targets.length <= 20) {
+    const sortedWheelIndices = targets.map(t => ROULETTE_NUMBERS.indexOf(t)).sort((a, b) => a - b);
+    let maxGap = 0;
+    let gapCenterIdx = -1;
+
+    for (let i = 0; i < sortedWheelIndices.length; i++) {
+      const currIdx = sortedWheelIndices[i];
+      const nextIdx = sortedWheelIndices[(i + 1) % sortedWheelIndices.length];
+      
+      let gap = 0;
+      if (nextIdx > currIdx) {
+        gap = nextIdx - currIdx - 1;
+      } else {
+        gap = 37 - currIdx + nextIdx - 1;
+      }
+
+      if (gap > maxGap && gap >= 6) { // A gap of >= 6 empty spaces is considered a hole
+        maxGap = gap;
+        gapCenterIdx = (currIdx + 1 + Math.floor(gap / 2)) % 37;
+      }
+    }
+
+    if (maxGap >= 6 && gapCenterIdx !== -1) {
+      stats.wheelHoleAlert = true;
+      stats.wheelHoleGap = maxGap;
+      const centerTarget = ROULETTE_NUMBERS[gapCenterIdx];
+      stats.wheelHoleTargets = [centerTarget];
+      
+      // Expand to add one neighbor to each side to cover the hole properly
+      targets.push(centerTarget);
+      targets.push(ROULETTE_NUMBERS[(gapCenterIdx - 1 + 37) % 37]);
+      targets.push(ROULETTE_NUMBERS[(gapCenterIdx + 1) % 37]);
+    }
+  }
+  
+  targets = Array.from(new Set(targets));
 
   return { targets, biasMessage, stats, confidence, playSignal };
 }

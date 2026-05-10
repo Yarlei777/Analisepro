@@ -29,6 +29,10 @@ interface RouletteWheelProps {
   repeatedPatternTargets?: number[];
   binaryTerminalAlert?: boolean;
   binaryTerminalTargets?: number[];
+  hotTerminalAlert?: boolean;
+  hotTerminalTargets?: number[];
+  wheelHoleAlert?: boolean;
+  wheelHoleTargets?: number[];
   onDismissSignal?: () => void;
   className?: string;
 }
@@ -55,6 +59,10 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
     repeatedPatternTargets = [],
     binaryTerminalAlert = false,
     binaryTerminalTargets = [],
+    hotTerminalAlert = false,
+    hotTerminalTargets = [],
+    wheelHoleAlert = false,
+    wheelHoleTargets = [],
     onDismissSignal,
     className,
   }) => {
@@ -341,27 +349,17 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
             const isSomaTarget = somaAlert && somaTargetSum !== null && (num < 10 ? num : Math.floor(num / 10) + (num % 10)) === somaTargetSum;
             const isDoublePattern = doublePatternTargets.some((t) => getNeighbors(t, 1).includes(num));
             const isStreak = streakTargets.some((t) => getNeighbors(t, 1).includes(num));
-            const isRepeatedPattern = repeatedPatternTargets.some((t) => getNeighbors(t, 1).includes(num));
-            const isBinaryTerminalTarget = binaryTerminalAlert && binaryTerminalTargets.includes(num);
+            const isRepeatedPattern = repeatedPatternTargets.some((t) => getNeighbors(t, 2).includes(num));
+            const isBinaryTerminalTarget = binaryTerminalAlert && binaryTerminalTargets.some((t) => getNeighbors(t, 1).includes(num));
+            const isHotTerminalTarget = hotTerminalAlert && hotTerminalTargets.some((t) => getNeighbors(t, 1).includes(num));
+            const isWheelHoleTarget = wheelHoleAlert && wheelHoleTargets.some((t) => getNeighbors(t, 1).includes(num));
 
             const isOmega = omegaTarget !== null && getNeighbors(omegaTarget, 4).includes(num);
             const isLast = lastNumber === num;
             const isLastNeighbor = lastNumber !== undefined && getNeighbors(lastNumber, 1).includes(num) && !isLast;
 
-            const isAnyYellowTarget =
-              isTarget ||
-              isQuebra ||
-              isBallistics ||
-              isVacuum ||
-              isSequence ||
-              isTimeMirror ||
-              isSomaTarget ||
-              isDoublePattern ||
-              isStreak ||
-              isRepeatedPattern ||
-              isBinaryTerminalTarget ||
-              isLast ||
-              isLastNeighbor;
+            // Reduce wheel clutter by only highlighting the most critical signals
+            const isAnyYellowTarget = isTarget || isLast;
 
             // Se for super confluência, ilumina tudo do alvo (que são apenas a intersecção)
             // Se for apenas uma dúzia ou coluna, ilumina de roxo apenos os alvos que já acenderiam por outras análises
@@ -423,21 +421,60 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                   />
                 )}
 
-                {/* Red Highlight for Repeated Pattern */}
+                {/* Turquoise Highlight for Binary Terminal */}
+                {isBinaryTerminalTarget && !isRepeatedPattern && !isQuebra && !isOmega && !isZonaFaltaFocus && !isAnyYellowTarget && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(6, 182, 212, 0.4)" // cyan-500
+                    stroke="#06b6d4"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(6,182,212,0.6)]"
+                  />
+                )}
+
+                {/* Pink Highlight for Hot Terminal */}
+                {isHotTerminalTarget && !isWheelHoleTarget && !isBinaryTerminalTarget && !isRepeatedPattern && !isQuebra && !isOmega && !isZonaFaltaFocus && !isAnyYellowTarget && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(236, 72, 153, 0.4)" // pink-500
+                    stroke="#ec4899"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(236,72,153,0.6)]"
+                  />
+                )}
+
+                {/* Magenta Highlight for Wheel Hole */}
+                {isWheelHoleTarget && !isBinaryTerminalTarget && !isRepeatedPattern && !isQuebra && !isOmega && !isZonaFaltaFocus && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="16"
+                    fill="rgba(217, 70, 239, 0.4)" // fuchsia-500
+                    stroke="#d946ef"
+                    strokeWidth="2.5"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(217,70,239,0.6)]"
+                  />
+                )}
+
+                {/* Orange Highlight for Repeated Pattern */}
                 {isRepeatedPattern && !isQuebra && !isOmega && !isZonaFaltaFocus && (
                   <circle
                     cx={x}
                     cy={y}
                     r="16"
-                    fill="rgba(255, 0, 0, 0.4)"
-                    stroke="#ff0000"
+                    fill="rgba(249, 115, 22, 0.4)"
+                    stroke="#f97316"
                     strokeWidth="2.5"
-                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(255,0,0,0.6)]"
+                    className="pointer-events-none drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]"
                   />
                 )}
 
                 {/* General Target Highlight with Neon Green Glow */}
-                {isAnyYellowTarget && !isRepeatedPattern && !isOmega && !isQuebra && !isZonaFaltaFocus && (
+                {isAnyYellowTarget && !isWheelHoleTarget && !isRepeatedPattern && !isOmega && !isQuebra && !isZonaFaltaFocus && (
                   <circle
                     cx={x}
                     cy={y}
@@ -454,7 +491,7 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                   x={x}
                   y={y}
                   fill="white"
-                  fontSize={isRepeatedPattern ? "18" : isZonaFaltaFocus ? "19" : isOmega ? "19" : isQuebra ? "16" : isAnyYellowTarget ? "16" : "13"}
+                  fontSize={isRepeatedPattern ? "18" : isZonaFaltaFocus ? "19" : isOmega ? "19" : isQuebra ? "16" : isAnyYellowTarget ? "16" : isBinaryTerminalTarget ? "16" : isWheelHoleTarget ? "16" : isHotTerminalTarget ? "16" : "13"}
                   fontWeight="900"
                   fontFamily="Inter, sans-serif"
                   textAnchor="middle"
@@ -462,16 +499,22 @@ export const RouletteWheel: React.FC<RouletteWheelProps> = React.memo(
                   className={cn(
                     "pointer-events-none transition-all duration-300",
                     isRepeatedPattern
-                      ? "fill-red-400 brightness-150 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)]"
+                      ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
                       : isZonaFaltaFocus
                       ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
                       : isOmega
                         ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
                         : isQuebra
                           ? "fill-orange-400 brightness-150 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]"
+                          : isWheelHoleTarget
+                            ? "fill-fuchsia-400 brightness-150 drop-shadow-[0_0_10px_rgba(232,121,249,0.8)]"
                           : isAnyYellowTarget
                             ? "fill-yellow-400 brightness-150 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]"
-                            : "opacity-90 font-extrabold",
+                            : isBinaryTerminalTarget
+                              ? "fill-cyan-400 brightness-150 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]"
+                              : isHotTerminalTarget
+                                ? "fill-pink-400 brightness-150 drop-shadow-[0_0_10px_rgba(244,114,182,0.8)]"
+                              : "opacity-90 font-extrabold",
                   )}
                 >
                   {num}
